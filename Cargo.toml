@@ -1,0 +1,31 @@
+[package]
+name = "OxidizeOnIntelliJ"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+reqwest = "0.11.14"
+serde = { version = "1.0.152", features = ["derive"] }
+serde_json = "1.0.93"
+rdkafka = { version = "0.29.0" }
+clap = { version = "4.1.4", features = ["derive"] }
+chrono = "0.4.23"
+uuid = { version="1.3.0", features = [
+    "v4",                # Lets you generate random UUIDs
+    "fast-rng",          # Use a faster (but still sufficiently random) RNG
+    "macro-diagnostics", # Enable better diagnostics for compile-time UUIDs
+] }
+env_logger = "0.10.0"
+log = "0.4.17"
+anyhow = "1.0.69"
+
+[dev-dependencies]
+criterion = "0.4.0"
+
+[[bench]]
+name="consumer_bench"
+harness=false
+
