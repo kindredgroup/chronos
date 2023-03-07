@@ -1,77 +1,43 @@
 #![allow(unused)]
-use crate::consumer::{consumer};
+
+use producer::publish;
+use tokio::try_join;
+
+use crate::consumer::{consume_and_print, consumer};
+use crate::kafka_client::KafkaConsumer;
 use crate::producer::producer;
 // use std::future::Future;
 //
 
 use std::sync::mpsc;
-use std::thread;
-// use std::thread;
-//
+use std::sync::mpsc::{Receiver, Sender};
+
 mod consumer;
+mod kafka_client;
 mod producer;
+mod scruitiny;
+mod layover;
+mod pg_client;
 
-// // #[tokio::main]
-// fn main() {
-//     println!("welcome to kafka prosumer! 0.0.1");
-//
-//     let (rx, tx) = channel::<String>();
-//
-//     thread::spawn(move || match consumer() {
-//         Ok(m) => {
-//             println!("message that was consumed {:?}", m);
-//             tx.send("Message consumed").unwrap();
-//         }
-//         Err(e) => println!("error from the consumer {:?}", e),
-//     });
-//
-//     match rx.try_recv() {
-//         Ok(m) => println!("checking the message rec {:?}", m),
-//         Err(e) => println!("error in message rec {:?}", e),
-//     }
-//
-//     // producer();
-//     // consumer();
-// }
+#[tokio::main]
+async fn main() {
+    let (sender, receiver) = mpsc::channel::<String>();
 
-// use tokio::sync::mpsc;
-//
-// #[tokio::main]
-// async fn main() {
-//     let (tx, mut rx) = mpsc::channel(32);
-//     let tx2 = tx.clone();
-//
-//     tokio::spawn(async move {
-//         tx.send("sending from first handle").await;
-//     });
-//
-//     tokio::spawn(async move {
-//         tx2.send("sending from second handle").await;
-//     });
-//
-//     while let Some(message) = rx.recv().await {
-//         println!("GOT = {}", message);
-//     }
-// }
+    let chronos_consumer = consumer().unwrap();
 
-fn main() {
-    use std::sync::mpsc::channel;
-    use std::thread;
+    let c_handle = tokio::spawn( async move  {
 
-    let (sender, receiver) = channel();
-
-    let handle = thread::spawn(move || {
-        sender.send(consumer()).unwrap();
+        consume_and_print(chronos_consumer, sender).await.unwrap();
     });
 
-    // println!("This is the receiver{:?}", receiver.recv().unwrap());
-    match receiver.recv().unwrap() {
-        Ok(m) => {
-            println!("received {:?}", &m);
-            producer(m.payload);
-        }
-        Err(e) => println!("Error occurred while receiving {:?}", e),
-    }
+    // let chronos_producer = producer();
+    let p_handle = tokio::spawn(async {
+        scruitiny::Srcuitiny::scuitinize(receiver);
+    });
+    // let p_handle = tokio::spawn(async {
+    //     publish(chronos_producer, receiver).await;
+    // });
 
-    handle.join().unwrap()
+    try_join!(c_handle, p_handle);
 }
+

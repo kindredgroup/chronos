@@ -1,11 +1,14 @@
 use std::time::Duration;
 
+use anyhow::Error;
 use log::info;
 
 use chrono::prelude::*;
 use rdkafka::config::ClientConfig;
 use rdkafka::message::{Header, OwnedHeaders};
 use rdkafka::producer::{FutureProducer, FutureRecord};
+use serde_json::Value;
+use std::fmt;
 use uuid::Uuid;
 
 use clap::Parser;
@@ -26,6 +29,51 @@ async fn produce(brokers: &str, topic_name: &str, num_of_messages: &i32) {
     let num = num_of_messages.to_owned();
     println!("checking how many mess {}", num);
 
+    let data = r#"
+        {
+            "name": "John Doe",
+            "age": 43,
+            "phones": [
+                "+44 1234567",
+                "+44 2345678"
+            ]
+        }"#;
+
+    // Parse the string of data into serde_json::Value.
+    // let v: Value = serde_json::from_str(data);
+
+    #[derive(Debug,Clone)]
+    struct InputMessage<'a>{
+        deadline: DateTime<Utc>,
+        message: &'a str,
+    }
+
+
+
+
+    // To use the `{}` marker, the trait `fmt::Display` must be implemented
+    // manually for the type.
+    impl fmt::Display for InputMessage<'_> {
+        // This trait requires `fmt` with this exact signature.
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            // Write strictly the first element into the supplied output
+            // stream: `f`. Returns `fmt::Result` which indicates whether the
+            // operation succeeded or failed. Note that `write!` uses syntax which
+            // is very similar to `println!`.
+            write!(f, "{} {}", self.deadline, self.message)
+        }
+    }
+
+    impl  std::marker::Copy for InputMessage<'_> {
+        
+    }
+
+
+    let message=InputMessage{
+        deadline:utc,
+        message: &String::from(data)
+    };
+
     // This loop is non blocking: all messages will be sent one after the other, without waiting
     // for the results.
     let futures = (0..num)
@@ -35,7 +83,7 @@ async fn produce(brokers: &str, topic_name: &str, num_of_messages: &i32) {
             let delivery_status = producer
                 .send(
                     FutureRecord::to(topic_name)
-                        .payload(&format!("Message {}", i))
+                        .payload(&format!("Message {}", message))
                         .key(&format!("Key {}", i))
                         .headers(
                             OwnedHeaders::new()
@@ -97,5 +145,5 @@ pub async fn main() {
     let num_of_messages = &matches.num;
 
     //TODO: brokers and topic from config
-    produce("localhost:29092", "topic", num_of_messages).await;
+    produce("localhost:29092", "input.topic", num_of_messages).await;
 }
