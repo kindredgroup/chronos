@@ -23,7 +23,8 @@ log = "0.4.17"
 anyhow = "1.0.69"
 postgres = {version="0.19.4", features=["with-chrono-0_4"]}
 dotenvy = "0.15"
-
+futures="0.3.26"
+async-trait = "0.1.66"
 [dev-dependencies]
 criterion = "0.4.0"
 

@@ -1,43 +1,41 @@
-#![allow(unused)]
-
-use producer::publish;
-use tokio::try_join;
-
-use crate::consumer::{consume_and_print, consumer};
-use crate::kafka_client::KafkaConsumer;
-use crate::producer::producer;
-// use std::future::Future;
-//
-
-use std::sync::mpsc;
-use std::sync::mpsc::{Receiver, Sender};
-
-mod consumer;
-mod kafka_client;
-mod producer;
-mod scruitiny;
-mod layover;
-mod pg_client;
-
+use chrono::{DateTime, Utc};
+use chronos::core::{ChronosDeliveryMessage, ChronosError, ChronosMessageStatus, DataStore};
+use chronos::runner::Runner;
 #[tokio::main]
 async fn main() {
-    let (sender, receiver) = mpsc::channel::<String>();
-
-    let chronos_consumer = consumer().unwrap();
-
-    let c_handle = tokio::spawn( async move  {
-
-        consume_and_print(chronos_consumer, sender).await.unwrap();
-    });
-
-    // let chronos_producer = producer();
-    let p_handle = tokio::spawn(async {
-        scruitiny::Srcuitiny::scuitinize(receiver);
-    });
-    // let p_handle = tokio::spawn(async {
-    //     publish(chronos_producer, receiver).await;
-    // });
-
-    try_join!(c_handle, p_handle);
+  let r = Runner {
+        data_store: Box::new(MyDataStore {
+            data: Vec::new()
+        }),
+        producer: Box::new(()),
+        consumer: Box::new(()),
+    };
+    r.run().await;
 }
 
+
+struct MyDataStore {
+    data: Vec<ChronosDeliveryMessage>
+}
+
+impl DataStore for MyDataStore {
+    async fn insert(&self, message: ChronosDeliveryMessage) -> Result<ChronosDeliveryMessage, ChronosError> {
+        todo!()
+    }
+
+    async fn delete(&self, message: ChronosDeliveryMessage) -> Result<ChronosDeliveryMessage, ChronosError> {
+        todo!()
+    }
+
+    async fn move_to_initial_state(&self, message: ChronosDeliveryMessage) -> Result<ChronosDeliveryMessage, ChronosError> {
+        todo!()
+    }
+
+    async fn move_to_ready_state(&self, message: ChronosDeliveryMessage) -> Result<ChronosDeliveryMessage, ChronosError> {
+        todo!()
+    }
+
+    async fn get_messages(&self, status: ChronosMessageStatus, date_time: Option<DateTime<Utc>>, limit: Option<u64>) -> Result<Vec<ChronosDeliveryMessage>, ChronosError> {
+        todo!()
+    }
+}
