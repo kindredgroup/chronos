@@ -29,27 +29,24 @@ async fn produce(brokers: &str, topic_name: &str, num_of_messages: &i32) {
     let num = num_of_messages.to_owned();
     println!("checking how many mess {}", num);
 
-    let data = r#"
-        {
-            "name": "John Doe",
-            "age": 43,
-            "phones": [
-                "+44 1234567",
-                "+44 2345678"
-            ]
-        }"#;
+    // let data = r#"
+    //     {
+    //         "name": "John Doe",
+    //         "age": 43,
+    //         "phones": [
+    //             "+44 1234567",
+    //             "+44 2345678"
+    //         ]
+    //     }"#;
 
     // Parse the string of data into serde_json::Value.
     // let v: Value = serde_json::from_str(data);
 
-    #[derive(Debug,Clone)]
-    struct InputMessage<'a>{
+    #[derive(Debug, Clone)]
+    struct InputMessage<'a> {
         deadline: DateTime<Utc>,
         message: &'a str,
     }
-
-
-
 
     // To use the `{}` marker, the trait `fmt::Display` must be implemented
     // manually for the type.
@@ -64,14 +61,11 @@ async fn produce(brokers: &str, topic_name: &str, num_of_messages: &i32) {
         }
     }
 
-    impl  std::marker::Copy for InputMessage<'_> {
-        
-    }
+    impl std::marker::Copy for InputMessage<'_> {}
 
-
-    let message=InputMessage{
-        deadline:utc,
-        message: &String::from(data)
+    let message = InputMessage {
+        deadline: utc,
+        message: "Test Message",
     };
 
     // This loop is non blocking: all messages will be sent one after the other, without waiting
@@ -109,7 +103,6 @@ async fn produce(brokers: &str, topic_name: &str, num_of_messages: &i32) {
 
     // This loop will wait until all delivery statuses have been received.
     for future in futures {
-        // info!("Future completed. Result: {:?}", future.await);
         println!("Future completed. Result: {:?}", future.await);
     }
 }
@@ -145,5 +138,5 @@ pub async fn main() {
     let num_of_messages = &matches.num;
 
     //TODO: brokers and topic from config
-    produce("localhost:29092", "input.topic", num_of_messages).await;
+    produce("localhost:9093", "input.topic", num_of_messages).await;
 }

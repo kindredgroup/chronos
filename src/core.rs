@@ -1,21 +1,20 @@
-use chrono::{DateTime, Utc};
-use rdkafka::message::ToBytes;
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
 
 pub enum ChronosError {
     ConsumerError,
     ProducerError,
-    DBError
+    DBError,
 }
 
 pub enum ChronosMessageStatus {
     Submitted,
-    Ready
+    Ready,
 }
 
 pub struct ChronosDeliveryMessage {
     pub(crate) deadline: DateTime<Utc>,
-    pub(crate) offset: u64
+    pub(crate) offset: u64,
 }
 
 #[async_trait]
@@ -24,37 +23,40 @@ pub trait Runner {
 }
 
 #[async_trait]
-pub trait MessageConsumer{
-    async fn consume(
-        &self,
-    ) -> Result<ChronosDeliveryMessage, ChronosError>;
+pub trait MessageConsumer {
+    async fn consume(&self) -> Result<ChronosDeliveryMessage, ChronosError>;
     fn subscribe(&self);
     fn unsubscrbe(&self);
     async fn commit(&self, offset: u64);
 }
 
 #[async_trait]
-pub trait MessageProducer{
-    async fn produce(
-        &self, message: ChronosDeliveryMessage
-    ) -> Result<(), ChronosError>;
+pub trait MessageProducer {
+    async fn produce(&self, message: ChronosDeliveryMessage) -> Result<(), ChronosError>;
 }
 
 #[async_trait]
-pub trait DataStore{
+pub trait DataStore {
     async fn insert(
-        &self, message: ChronosDeliveryMessage
+        &self,
+        message: ChronosDeliveryMessage,
     ) -> Result<ChronosDeliveryMessage, ChronosError>;
     async fn delete(
-        &self, message: ChronosDeliveryMessage
+        &self,
+        message: ChronosDeliveryMessage,
     ) -> Result<ChronosDeliveryMessage, ChronosError>;
     async fn move_to_initial_state(
-        &self, message: ChronosDeliveryMessage
+        &self,
+        message: ChronosDeliveryMessage,
     ) -> Result<ChronosDeliveryMessage, ChronosError>;
     async fn move_to_ready_state(
-        &self, message: ChronosDeliveryMessage
+        &self,
+        message: ChronosDeliveryMessage,
     ) -> Result<ChronosDeliveryMessage, ChronosError>;
-    async fn get_messages(&self, status: ChronosMessageStatus, date_time: Option<DateTime<Utc>>, limit: Option<u64>) -> Result<Vec<ChronosDeliveryMessage>, ChronosError>;
+    async fn get_messages(
+        &self,
+        status: ChronosMessageStatus,
+        date_time: Option<DateTime<Utc>>,
+        limit: Option<u64>,
+    ) -> Result<Vec<ChronosDeliveryMessage>, ChronosError>;
 }
-
-
