@@ -7,7 +7,6 @@ use rdkafka::consumer::stream_consumer::StreamConsumer;
 use rdkafka::consumer::{Consumer, ConsumerContext, Rebalance};
 use rdkafka::message::{Headers, Message};
 
-
 #[derive(Debug)]
 pub struct FireMessage {
     pub payload: String, //TODO: explore what type can be the payload

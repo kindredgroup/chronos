@@ -15,8 +15,7 @@ const OUTPUT_HEADERS: [&str; 1] = ["readied_at"];
 
 #[async_trait]
 pub trait ProducerMessages {
-    async fn produce(m: &str, p: &FutureProducer)
-        ->  Result<OwnedDeliveryResult, KafkaError> ;
+    async fn produce(m: &str, p: &FutureProducer) -> Result<OwnedDeliveryResult, KafkaError>;
 }
 
 pub struct KafkaPublisher {
@@ -31,10 +30,7 @@ impl KafkaPublisher {
 
 #[async_trait]
 impl ProducerMessages for KafkaPublisher {
-    async fn produce(
-        m: &str,
-        p: &FutureProducer,
-    ) -> Result<OwnedDeliveryResult, KafkaError> {
+    async fn produce(m: &str, p: &FutureProducer) -> Result<OwnedDeliveryResult, KafkaError> {
         publish(&p, String::from(m)).await
     }
 }
@@ -51,7 +47,7 @@ pub async fn publish(
     // match receiver.recv().unwrap() {
     //     m => println!("the payload from sender thread {:?}", m),
     //     // Ok(m)=> println!("the payload from sender thread {:?}",m),
-    //     // Err(e)=> println!("Error occure while receiving from the channel {:?}",e)
+    //     // Err(e)=> println!("Error occurs while receiving from the channel {:?}",e)
     // }
     let delivery_status = producer
         .send(
