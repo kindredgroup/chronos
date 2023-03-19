@@ -87,7 +87,7 @@ async fn produce(brokers: &str, topic_name: &str, num_of_messages: &i32) {
                                 })
                                 .insert(Header {
                                     key: "chronosID",
-                                    value: Some(&id.to_string()),
+                                    value: Some(&Uuid::new_v4().to_string()),
                                 }),
                         ),
                     Duration::from_secs(0),
@@ -129,7 +129,7 @@ struct Args {
 #[tokio::main]
 pub async fn main() {
     env_logger::init();
-    println!("Hello from Producer");
+    println!("Hello from Producer {}", Utc::now().to_rfc3339());
     let matches = Args::parse();
 
     //

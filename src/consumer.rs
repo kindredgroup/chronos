@@ -6,6 +6,7 @@ use rdkafka::config::{ClientConfig, RDKafkaLogLevel};
 use rdkafka::consumer::stream_consumer::StreamConsumer;
 use rdkafka::consumer::{Consumer, ConsumerContext, Rebalance};
 use rdkafka::message::{Headers, Message};
+use tokio::join;
 
 #[derive(Debug)]
 pub struct FireMessage {

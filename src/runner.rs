@@ -1,7 +1,7 @@
 // use crate::core::{DataStore, MessageConsumer, MessageProducer};
 use crate::message_processor::MessageProcessor;
 use crate::message_receiver::MessageReceiver;
-use crate::monitor::Monitor;
+use crate::monitor::FailureDetector;
 
 pub struct Runner {
     // pub data_store: Box<dyn DataStore>,
@@ -11,9 +11,10 @@ pub struct Runner {
 
 // Each thread has it own instance for kafka/db --> FIRST CUT
 impl Runner {
+    // pub async fn run(&self) {
     pub async fn run(&self) {
         let monitor_handler = tokio::task::spawn(async {
-            let monitor = Monitor{
+            let monitor = FailureDetector {
                 // data_store: self.data_store.clone()
             };
             monitor.run().await;
@@ -36,8 +37,8 @@ impl Runner {
         });
         // loop {
         futures::future::join_all([
-            monitor_handler,
-            message_processor_handler,
+            // monitor_handler,
+            // message_processor_handler,
             message_receiver_handler,
         ])
         .await;

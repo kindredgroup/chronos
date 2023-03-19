@@ -31,8 +31,8 @@ impl MessageProcessor {
             let param = GetReady {
                 readied_at: deadline,
                 readied_by: uuid,
-                deadline, // Doesnt look
-                limit: 3,
+                deadline,
+                limit: 10,
                 // order: "asc",
             };
 
@@ -41,9 +41,10 @@ impl MessageProcessor {
 
             let publish_rows = PgDB::readying_update(&data_store, &ready_params).await;
 
-            println!("Rows Needs Readying:: {:?}", publish_rows.len());
+            println!("Rows Needs Readying:: {:?} @ {:?}", publish_rows.len(),Utc::now());
 
-            let mut table_row = Vec::new();
+            let mut ids=String::new();
+
             for row in &publish_rows {
                 let updated_row = TableRow {
                     id: row.get("id"),
@@ -54,32 +55,35 @@ impl MessageProcessor {
                     message_key: row.get("message_key"),
                     message_value: row.get("message_value"),
                 };
-                // println!("checking the rows {:?}", &updated_row);
-                table_row.push(updated_row);
-            }
 
-            // TODO: change the capacity once we know the limit of how many pushed records
-            let mut ids: Vec<&str> = Vec::with_capacity(table_row.len());
 
-            for value in table_row {
-                let mut outcome = "noop";
                 let result =
-                    KafkaPublisher::produce(&*value.message_value.to_string(), &k_producer).await;
+                    KafkaPublisher::publish( &k_producer,
+                                             &updated_row.message_value.to_string(),
+                                             &updated_row.message_headers.to_string(),
+                                             &updated_row.message_key.to_string() ).await;
                 match result {
                     Ok(m) => {
-                        ids.push(value.id);
-                        println!("insert success with number changed {:?}", m);
-                        outcome = "success";
+                        ids.push_str(&*("'".to_owned() + &updated_row.id + "'" + ","));
+                        println!("insert success with number changed {:?} @{:?}", m,Utc::now());
+
                     }
                     Err(e) => {
                         println!("publish failed {:?}", e);
                         // failure detection needs to pick
-                        outcome = "error"
+
                     }
                 }
             }
-            println!("finished the loop for publish");
-            PgDB::delete_fired(&data_store, &ids).await;
+
+
+            println!("finished the loop for publish now delete published from DB");
+            if ids.len() > 0 {
+                PgDB::delete_fired(&data_store, &ids).await;
+                println!("delete fired id {:?} @{:?}", &ids,Utc::now());
+            }else{
+                println!("no more processing {}",Utc::now().to_rfc3339());
+            }
 
             println!("after the delete statement");
 

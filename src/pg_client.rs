@@ -1,6 +1,5 @@
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use tokio_postgres::types::FromSql;
 use tokio_postgres::{Client, Error, NoTls, Row};
 use uuid::Uuid;
 
@@ -8,10 +7,10 @@ use uuid::Uuid;
 pub trait DBOps {
     async fn insert(db: &Client, params: &TableInsertRow) -> Result<u64, anyhow::Error>;
     // async fn queuing_fetch(pg_client: &Client, deadline: String, limit: u16) -> Vec<TableRow>;
-    async fn delete_fired(pg_client: &Client, ids: &Vec<&str>) -> u64;
+    async fn delete_fired(pg_client: &Client, ids: &String) -> u64;
     async fn readying_update(pg_client: &Client, params: &Vec<GetReady>) -> Vec<Row>;
     async fn get_delayed(db: &Client, params: &GetDelays) -> Vec<Row>;
-    async fn reset_to_init(db: &Client, params: &str) -> u64;
+    async fn reset_to_init(pg_client: &Client, ids: &str, limit:i64) -> Result<u64, Error>;
 }
 #[derive(Debug)]
 pub struct PgDB {
@@ -118,12 +117,10 @@ impl DBOps for PgDB {
     //     values
     // }
 
-    async fn delete_fired(pg_client: &Client, ids: &Vec<&str>) -> u64 {
-        let mut delete_ids = String::from("");
-        for id in ids {
-            delete_ids = delete_ids + &*id.to_string() + ","
-        }
-        delete_ids = delete_ids.strip_suffix(",").unwrap().to_string();
+    async fn delete_fired(pg_client: &Client, ids: &String) -> u64 {
+
+        println!("delete ids {:?}",ids);
+        let delete_ids = ids.strip_suffix(",").unwrap().to_string();
 
         let sql = format!("Delete from hanger where id in ({})", delete_ids);
 
@@ -137,13 +134,13 @@ impl DBOps for PgDB {
 
         //TODO: This query will need limit and the sort order
         let ready_query = format!( "UPDATE hanger set readied_at= '{}', readied_by= '{}'  where id IN\
-                                (SELECT ID FROM  hanger WHERE deadline > '{}' AND readied_at IS NULL LIMIT {})\
+                                (SELECT ID FROM  hanger WHERE deadline < '{}' AND readied_at IS NULL LIMIT {})\
                                 RETURNING id, deadline, readied_at, readied_by, message_headers, message_key, message_value;",&param.readied_at,
                                    &param.readied_by,
                                    &param.deadline,
                                    &param.limit);
 
-        println!("ready query {}",ready_query);
+        // println!("ready query {}", ready_query);
 
         let response = pg_client
             .query(&ready_query, &[])
@@ -189,7 +186,7 @@ impl DBOps for PgDB {
     }
 
     async fn get_delayed(pg_client: &Client, params: &GetDelays) -> Vec<Row> {
-        let get_query = "SELECT * from hanger where readied_at > $1";
+        let get_query = "SELECT * from hanger where readied_at < $1";
         let response = pg_client
             .query(get_query, &[&params.delay_time])
             .await
@@ -198,16 +195,17 @@ impl DBOps for PgDB {
         response
     }
 
-    async fn reset_to_init(pg_client: &Client, params: &str) -> u64 {
+
+    async fn reset_to_init(pg_client: &Client, ids: &str, limit:i64) -> Result<u64, Error> {
         let reset_query = format!(
-            "UPDATE hanger set readied_at=null , readied_by=null  where id IN ({})",
-            params
+            "UPDATE hanger set readied_at=null , readied_by=null  where id = '{}'",
+            ids
         );
+        println!("reset query {}",reset_query);
 
         pg_client
             .execute(&reset_query, &[])
             .await
-            .expect("update to awaiting failed")
     }
 }
 
@@ -235,9 +233,9 @@ pub struct TableRow<'a> {
 pub struct TableInsertRow<'a> {
     pub id: &'a str,
     pub deadline: DateTime<Utc>,
-    pub message_headers: serde_json::Value,
+    pub message_headers: &'a serde_json::Value,
     pub message_key: &'a str,
-    pub message_value: serde_json::Value,
+    pub message_value: &'a serde_json::Value,
 }
 
 // impl From<Row> for TableRow<'_> {

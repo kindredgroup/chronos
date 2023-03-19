@@ -1,13 +1,16 @@
-use crate::core::{ChronosMessageStatus, DataStore};
+// use crate::core::{ChronosMessageStatus, DataStore};
 use crate::pg_client::{DBOps, GetDelays, PgDB, TableRow};
 use chrono::{Duration as chrono_duration, Utc};
 use std::time::Duration;
+use log::{error, info};
+use tokio_postgres::Error;
 
-pub struct Monitor {
+pub struct FailureDetector {
     // pub(crate) data_store: Box<dyn DataStore>,
 }
 
-impl Monitor {
+//Needs to accept the poll time
+impl FailureDetector {
     pub async fn run(&self) {
         println!("Monitoring On!");
         loop {
@@ -28,7 +31,7 @@ impl Monitor {
             )
             .await;
 
-            let mut table_row = Vec::new();
+            let mut id_list: Vec<&str> = Vec::new();
             for row in &fetched_rows {
                 let updated_row = TableRow {
                     id: row.get("id"),
@@ -39,15 +42,17 @@ impl Monitor {
                     message_key: row.get("message_key"),
                     message_value: row.get("message_value"),
                 };
-                // println!("checking the rows {:?}", &updated_row);
-                table_row.push(updated_row);
+
+                println!("logging failed to fire messages {}", updated_row.id);
+                id_list.push(updated_row.id);
+                match  PgDB::reset_to_init(&data_store, &updated_row.id, 10).await {
+                    Ok(m) => info!("successfully reset state to init "),
+                    Err(e) => {
+                        error!("error occurred while reset to init state {}", &e);
+                        println!("error occurred while reset to init state {}", &e);}
+                }
             }
-            let mut id_list: Vec<&str> = Vec::new();
-            for message in table_row {
-                println!("logging failed to fire messages");
-                id_list.push(message.id);
-                let response = PgDB::reset_to_init(&data_store, &message.id).await;
-            }
+
         }
     }
 }
