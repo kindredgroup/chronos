@@ -1,8 +1,10 @@
+use std::collections::HashMap;
 // use crate::core::{ChronosMessageStatus, DataStore, MessageProducer};
 use crate::pg_client::{DBOps, GetReady, PgDB, TableRow};
 use crate::producer::{KafkaPublisher, ProducerMessages};
 use chrono::Utc;
 use std::time::Duration;
+use serde_json::json;
 use uuid::Uuid;
 
 pub struct MessageProcessor {
@@ -13,7 +15,7 @@ pub struct MessageProcessor {
 impl MessageProcessor {
     pub async fn run(&self) {
         println!("Processor turned ON!");
-        let k_producer = KafkaPublisher::new().await.client;
+        let kafka_producer = KafkaPublisher::new();
 
         let db_config = PgDB {
             connection_config: String::from(
@@ -25,7 +27,8 @@ impl MessageProcessor {
         loop {
             tokio::time::sleep(Duration::from_secs(1)).await;
 
-            let deadline = Utc::now();
+            //TODO: fine tune this 1sec duration
+            let deadline = Utc::now() + chrono::Duration::seconds(1);
             let uuid = Uuid::new_v4();
 
             let param = GetReady {
@@ -56,12 +59,24 @@ impl MessageProcessor {
                     message_value: row.get("message_value"),
                 };
 
+                let headers:HashMap<String,String> = match serde_json::from_str(&updated_row.message_headers.to_string()){
+                    Ok(T)=>T,
+                    Err(E)=> { println!("error occurred while parsing");
+                    HashMap::new()}
+                };
+                //TODO: id empty errors panic
+                println!("checking {:?}",headers);
+
 
                 let result =
-                    KafkaPublisher::publish( &k_producer,
-                                             &updated_row.message_value.to_string(),
-                                             &updated_row.message_headers.to_string(),
-                                             &updated_row.message_key.to_string() ).await;
+                    KafkaPublisher::publish(&kafka_producer,
+                                            &updated_row.message_value.to_string(),
+                                            &headers,
+                                            // &updated_row.message_headers,
+                                            // &HashMap::from([
+                                            //     ("Mercury".to_string(), "0.4".to_string())
+                                            // ]),
+                                            &updated_row.message_key.to_string() ).await;
                 match result {
                     Ok(m) => {
                         ids.push_str(&*("'".to_owned() + &updated_row.id + "'" + ","));

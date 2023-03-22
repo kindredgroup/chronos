@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::time::Duration;
 
 use rdkafka::{
@@ -10,17 +11,18 @@ use rdkafka::{
 use async_trait::async_trait;
 use chrono::prelude::*;
 use rdkafka::producer::future_producer::OwnedDeliveryResult;
+use crate::utils::into_headers;
 
 const OUTPUT_HEADERS: [&str; 2] = ["chronosID", "chronosDeadline"];
 
 #[async_trait]
 pub trait ProducerMessages {
     async fn publish(
-        producer: &FutureProducer,
+        &self,
         message: &str,
-        headers: &str,
+        headers: &HashMap<String,String>,
         key: &str
-    ) -> Result<OwnedDeliveryResult, KafkaError>;
+    ) -> Result<OwnedDeliveryResult, KafkaError> ;
 }
 
 pub struct KafkaPublisher {
@@ -28,7 +30,7 @@ pub struct KafkaPublisher {
 }
 
 impl KafkaPublisher {
-    pub async fn new() -> Self {
+    pub fn new() -> Self {
         Self { client: producer() }
     }
 }
@@ -36,30 +38,23 @@ impl KafkaPublisher {
 #[async_trait]
 impl ProducerMessages for KafkaPublisher {
     async fn publish(
-        producer: &FutureProducer,
+        &self,
         message: &str,
-        headers: &str,
+        headers: &HashMap<String,String>,
         key: &str
     ) -> Result<OwnedDeliveryResult, KafkaError> {
+        let client = &self.client;
         let utc: DateTime<Utc> = Utc::now();
-        println!("publishing message {:?} headers--{:?}", message, headers);
+        let o_header = into_headers(&headers);
+        println!("headers {:?}",o_header );
+        // println!("headers {:?} headers--{:?}", &headers["chronosID)"].to_string(), &headers["chronosDeadline)"].to_string());
 
-
-        let delivery_status = producer
+        let delivery_status = client
             .send(
                 FutureRecord::to("outbox.topic")
                     .payload( message)
                     .key(key)
-                    .headers(OwnedHeaders::new()
-                            .insert(Header {
-                            key: "chronosID",
-                            value: Some(headers),
-                            })
-                            // .insert(Header {
-                            //     key: "chronosDeadline",
-                            //     value:headers["chronosDeadline"].to_str(),
-                            // })
-                                    ),
+                    .headers(o_header),
                 Duration::from_secs(0),
             )
             .await;
