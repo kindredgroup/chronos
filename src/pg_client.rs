@@ -2,31 +2,25 @@ use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use tokio_postgres::{Client, Error, NoTls, Row};
 use uuid::Uuid;
+use crate::persistence_store::PersistenceStore;
 
-#[async_trait]
-pub trait DBOps {
-    async fn insert(db: &Client, params: &TableInsertRow) -> Result<u64, anyhow::Error>;
-    // async fn queuing_fetch(pg_client: &Client, deadline: String, limit: u16) -> Vec<TableRow>;
-    async fn delete_fired(pg_client: &Client, ids: &String) -> u64;
-    async fn readying_update(pg_client: &Client, params: &Vec<GetReady>) -> Vec<Row>;
-    async fn get_delayed(db: &Client, params: &GetDelays) -> Vec<Row>;
-    async fn reset_to_init(pg_client: &Client, ids: &str, limit:i64) -> Result<u64, Error>;
-}
 #[derive(Debug)]
 pub struct PgDB {
-    pub connection_config: String,
+    // pub connection_config: String,
+    // pub client: Client,
 }
 
 impl PgDB {
-    pub async fn new(&self) -> Client {
-        // let config  =  &self.connection_config
-        let config = "host=localhost user=admin password=admin dbname=chronos_db";
 
-        let (client, connection) = tokio_postgres::connect(config, NoTls).await.unwrap();
-
+    pub async fn connect(&self) -> Client {
+        let (client, connection) = tokio_postgres::connect(
+            "host=localhost user=admin password=admin dbname=chronos_db",
+            NoTls,
+        )
+        .await.unwrap();
         tokio::spawn(async move {
             if let Err(e) = connection.await {
-                eprintln!("connection error: {}", e);
+                println!("connection error: {}", e);
             }
         });
         client
@@ -34,8 +28,9 @@ impl PgDB {
 }
 
 #[async_trait]
-impl DBOps for PgDB {
-    async fn insert(pg_client: &Client, params: &TableInsertRow) -> Result<u64, anyhow::Error> {
+impl PersistenceStore for PgDB {
+    async fn insert_to_delay(&self, params: &TableInsertRow) -> Result<u64, anyhow::Error> {
+        let pg_client = self.connect().await;
         let insert_query =
             "INSERT INTO hanger (id, deadline,  message_headers, message_key, message_value)
                  VALUES ($1, $2 ,$3, $4, $5 )";
@@ -53,87 +48,29 @@ impl DBOps for PgDB {
             )
             .await?;
 
-        // let utc: DateTime<Utc> = Utc::now();
-        // let id = Uuid::new_v4();
-        //
-        // let data = r#"
-        // {
-        //     "name": "John Doe",
-        //     "age": 43,
-        //     "phones": [
-        //         "+44 1234567",
-        //         "+44 2345678"
-        //     ]
-        // }"#;
-        //
-        // let Ok(headers) = serde_json::from_str(data) else { todo!() };
-        //
-        // let Ok(value) = serde_json::from_str(data) else { todo!() };
-        //
-        // let entries = TableInsertColumns {
-        //     id: "ID8",
-        //     deadline: utc,
-        //     // readied_at: utc,
-        //     // readied_by: id, // These are not required for the first insert but wil be needed in the subsequent updates
-        //     message_headers: headers,
-        //     message_key: "key",
-        //     message_value: value,
-        // };
-        //
-        // let outcome = pg_client
-        //     .execute(
-        //         insert_query,
-        //         &[
-        //             &entries.id,
-        //             &entries.deadline,
-        //             // &entries.readied_at,
-        //             // &entries.readied_by,
-        //             &entries.message_headers,
-        //             &entries.message_key,
-        //             &entries.message_value,
-        //         ],
-        //     )
-        //     .await?;
-
         Ok(outcome)
     }
 
-    // async fn queuing_fetch(pg_client: &Client, deadline: String, limit: u16) -> Vec<TableRow> {
-    //     let select_query = "select * from hanger as h
-    //                 where h.deadline = $1 AND h.readied_at IS NULL ";
-    //
-    //    let deadline = "2023-03-08 02:42:00.616449+00";
-    //
-    //     let matching_rows = pg_client
-    //         .query(select_query, &[&deadline])
-    //         .await
-    //         .expect("fetch failed");
-    //
-    //     let values: Vec<TableRow> = matching_rows
-    //         .into_iter()
-    //         .map(|row| TableRow::from(row))
-    //         .collect();
-    //     println!("result for fetch {:?}", &values);
-    //     values
-    // }
+    async fn delete_fired(&self, ids: &String) -> u64 {
+        let pg_client = self.connect().await;
 
-    async fn delete_fired(pg_client: &Client, ids: &String) -> u64 {
-
-        println!("delete ids {:?}",ids);
+        println!("delete ids {:?}", ids);
         let delete_ids = ids.strip_suffix(",").unwrap().to_string();
 
-        let sql = format!("Delete from hanger where id in ({})", delete_ids);
+        let sql = format!("DELETE FROM hanger WHERE id IN ({})", delete_ids);
 
         let response = pg_client.execute(&sql, &[]).await.expect("delete failed");
         response
     }
 
-    async fn readying_update(pg_client: &Client, params: &Vec<GetReady>) -> Vec<Row> {
+    async fn ready_to_fire(&self, params: &Vec<GetReady>) -> Vec<Row> {
+        let pg_client = self.connect().await;
+
         println!("readying_update DB");
         let param = &params[0];
 
         //TODO: This query will need limit and the sort order
-        let ready_query = format!( "UPDATE hanger set readied_at= '{}', readied_by= '{}'  where id IN\
+        let ready_query = format!( "UPDATE hanger SET readied_at= '{}', readied_by= '{}'  where id IN\
                                 (SELECT ID FROM  hanger WHERE deadline < '{}' AND readied_at IS NULL LIMIT {})\
                                 RETURNING id, deadline, readied_at, readied_by, message_headers, message_key, message_value;",&param.readied_at,
                                    &param.readied_by,
@@ -147,65 +84,53 @@ impl DBOps for PgDB {
             .await
             .expect("update failed");
 
-        // println!("checking response {:?}",&response);
-
-        // let mut table_row = Vec::new();
-        // for row in &response{
-        //    let updated_row = TableRow{
-        //                     id: row.get("id"),
-        //                     deadline: row.get("deadline"),
-        //                     readied_at: row.get("readied_at"),
-        //                     readied_by: row.get("readied_by"),
-        //                     message_headers: row.get("message_headers"),
-        //                     message_key: row.get("message_key"),
-        //                     message_value: row.get("message_value"),
-        //                 };
-        //    println!("checking the rows {:?}", &updated_row);
-        //     table_row.push(updated_row);
-        // };
-
-        // println!("response from update {:?}",response);
-        // let mapped_rows:Vec<TableRow> = response
-        //     .into_iter()
-        //     .map(|row| {
-        //         TableRow{
-        //             id: row.get("id"),
-        //             deadline: row.get("deadline"),
-        //             readied_at: row.get("readied_at"),
-        //             readied_by: row.get("readied_by"),
-        //             message_headers: row.get("message_headers"),
-        //             message_key: row.get("message_key"),
-        //             message_value: row.get("message_value"),
-        //         }
-        //     })
-        //     .collect();
-        // Ok()
+        println!("redying success {:?}", &response);
         response
 
         // Ok(response)
     }
 
-    async fn get_delayed(pg_client: &Client, params: &GetDelays) -> Vec<Row> {
+    async fn failed_to_fire(&self, delay_time: DateTime<Utc>) -> Vec<Row> {
+        let pg_client = self.connect().await;
+
         let get_query = "SELECT * from hanger where readied_at < $1";
         let response = pg_client
-            .query(get_query, &[&params.delay_time])
+            .query(get_query, &[&delay_time])
             .await
             .expect("get delayed messages query failed");
 
         response
     }
 
+    async fn reset_to_init(&self,  to_init_list: &Vec<Row>) -> Vec<String> {
 
-    async fn reset_to_init(pg_client: &Client, ids: &str, limit:i64) -> Result<u64, Error> {
+        let mut id_list = Vec::<String>::new();
+        for row in to_init_list {
+            let updated_row = TableRow {
+                id: row.get("id"),
+                deadline: row.get("deadline"),
+                readied_at: row.get("readied_at"),
+                readied_by: row.get("readied_by"),
+                message_headers: row.get("message_headers"),
+                message_key: row.get("message_key"),
+                message_value: row.get("message_value"),
+            };
+
+            println!("logging failed to fire messages {}", updated_row.id);
+            id_list.push(format!("'{}'", updated_row.id));
+        }
+        let ids_list = id_list.join(",");
+        let pg_client = self.connect().await;
+
         let reset_query = format!(
-            "UPDATE hanger set readied_at=null , readied_by=null  where id = '{}'",
-            ids
+            "UPDATE hanger SET readied_at=null , readied_by=null  WHERE id IN  ({})",
+            ids_list
         );
-        println!("reset query {}",reset_query);
+        println!("reset query {}", reset_query);
 
-        pg_client
-            .execute(&reset_query, &[])
-            .await
+        pg_client.execute(&reset_query, &[]).await.expect("reset to init query failed");
+
+        id_list
     }
 }
 
@@ -238,20 +163,6 @@ pub struct TableInsertRow<'a> {
     pub message_value: &'a serde_json::Value,
 }
 
-// impl From<Row> for TableRow<'_> {
-//     fn from(row: Row) -> Self {
-//         Self {
-//             id: row.get("id"),
-//             deadline: row.get("deadline"),
-//             readied_at: row.get("readied_at"),
-//             readied_by: row.get("readied_by"),
-//             message_headers: row.get("message_headers"),
-//             message_key: row.get("message_key"),
-//             message_value: row.get("message_value"),
-//         }
-//     }
-// }
-
 pub struct GetReady {
     pub readied_at: DateTime<Utc>,
     pub readied_by: Uuid,
@@ -260,7 +171,3 @@ pub struct GetReady {
     // pub order: &'a str,
 }
 
-pub struct GetDelays {
-    pub delay_time: DateTime<Utc>,
-    // pub limit: i64
-}

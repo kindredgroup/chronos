@@ -68,6 +68,36 @@ services:
       - kafka
       - zookeeper
 
+  chronos-delay-scheduler:
+    image: ${DOCKER_IMAGE}
+    networks:
+      - chronos
+    ports:
+        - 8181:8181
+    working_dir: /opt/chronos
+    volumes:
+        - ../../:/opt/chronos
+    environment:
+      ENVIRONMENT: "dev"
+      SERVICE_NAME: "chronos-delay-scheduler"
+      BUILD_VERSION: "0.0.0"
+      KAFKA_BROKERS: "kafka:9092"
+      KAFKA_TOPIC_PREFIX: "dev."
+      KAFKA_CLIENT_ID: "chronos-dev"
+      KAFKA_GROUP_ID: "chronos-dev"
+      KAFKA_TOPIC: "ksp.certification"
+      PG_HOST: "postgres"
+      PG_PORT: 5432
+      PG_USER: "admin"
+      PG_PASSWORD: "admin"
+      PG_DATABASE: "chronos_db"
+      RUST_LOG: "${RUST_LOG:-debug}"
+    depends_on:
+      - postgres
+      - zookeeper
+      - kafka
+
+
 networks:
   chronos:
     name: chronos

@@ -1,18 +1,21 @@
+use anyhow::Error;
 use async_trait::async_trait;
-use log::warn;
-use rdkafka::Message;
+use log::{debug, error};
 use rdkafka::client::ClientContext;
 use rdkafka::config::{ClientConfig, RDKafkaLogLevel};
 use rdkafka::consumer::stream_consumer::StreamConsumer;
-use rdkafka::consumer::{Consumer, ConsumerContext, Rebalance};
+use rdkafka::consumer::{Consumer, ConsumerContext};
 
 use rdkafka::message::BorrowedMessage;
-use tokio::join;
 
 
-const INPUT_HEADERS: [&str; 2] = ["chronosID", "chronosDeadline"];
+#[async_trait]
+pub trait MessageConsumer {
+     async fn subscribe(&self) ;
+     async fn consume_message(&self) -> Result<BorrowedMessage, &Error>;
+}
 
-pub fn consumer(group_id:String) -> Result<StreamConsumer<CustomContext>, anyhow::Error> {
+pub fn consumer(group_id: String) -> Result<StreamConsumer<CustomContext>, Error> {
     //->Result<(), Box<dyn std::error::Error>>  {
     println!("Hello from consumer!");
     let context = CustomContext;
@@ -24,16 +27,14 @@ pub fn consumer(group_id:String) -> Result<StreamConsumer<CustomContext>, anyhow
         .set("bootstrap.servers", brokers)
         .set("enable.partition.eof", "false")
         .set("session.timeout.ms", "6000")
-        // .set("enable.auto.commit", "true")
+        .set("enable.auto.commit", "false")
         //.set("statistics.interval.ms", "30000")
         .set("auto.offset.reset", "beginning")
         .set_log_level(RDKafkaLogLevel::Debug)
         .create_with_context(context)?;
 
     return Ok(consumer);
-
 }
-
 
 // A context can be used to change the behavior of producers and consumers by adding callbacks
 // that will be executed by librdkafka.
@@ -59,41 +60,48 @@ impl ConsumerContext for CustomContext {
 // A type alias with your custom consumer can be created for convenience.
 type LoggingConsumer = StreamConsumer<CustomContext>;
 
-
-
-pub struct ConsumerClient {
-    pub(crate) client: Result<StreamConsumer<CustomContext>, anyhow::Error>,
+pub struct KafkaConsumer {
+    pub(crate) client: Result<StreamConsumer<CustomContext>, Error>,
     pub(crate) topics: Vec<&'static str>,
 }
-
-impl ConsumerClient {
-    pub fn new(topics: Vec<&'static str>, group_id: String) -> ConsumerClient {
-        Self { client:consumer(group_id) , topics }
+impl KafkaConsumer {
+    pub fn new(topics: Vec<&'static str>, group_id: String) -> KafkaConsumer {
+        Self {
+            client: consumer(group_id),
+            topics,
+        }
     }
+}
 
-    pub async fn subsTopics (&self){
-        let inst = if let Ok(inst) = &self.client { inst } else { todo!() };
+#[async_trait]
+impl MessageConsumer for KafkaConsumer {
 
-        inst.subscribe(&self.topics).expect("consumer Subscribe to topic failed");
-
+     async fn subscribe(&self) {
+        debug!("Topics {:?}", &self.topics);
+        &self
+            .client
+            .as_ref()
+            .expect("unable to get the clint")
+            .subscribe(&self.topics)
+            .expect("consumer Subscribe to topic failed");
     }
-   pub async fn consume_message(&self)->Result<BorrowedMessage, &anyhow::Error> {
+    async fn consume_message(&self)->Result<BorrowedMessage, &Error> {
        
         println!("route to consume");
 
-        match &self.client {
+        return match &self.client {
             Ok(consumer) => {
                 println!("success");
                 let subs = consumer.subscription().expect("failed to fetch");
                 println!("subs lists {:?}",subs );
                 let  input_message: BorrowedMessage = consumer.recv().await.expect("message recv error");
-                return Ok(input_message);
+                Ok(input_message)
                 
             },
 
             Err(e) => {
                 println!("Error occurred");
-                return Err(e)
+                Err(e)
             }
         }
         

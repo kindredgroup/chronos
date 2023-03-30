@@ -1,28 +1,23 @@
 use std::collections::HashMap;
-// use crate::core::{ChronosMessageStatus, DataStore, MessageProducer};
-use crate::pg_client::{DBOps, GetReady, PgDB, TableRow};
-use crate::producer::{KafkaPublisher, ProducerMessages};
+use std::sync::Arc;
+
+use crate::pg_client::{ GetReady, PgDB, TableRow};
+use crate::producer::{KafkaPublisher, MessageProducer};
 use chrono::Utc;
 use std::time::Duration;
-use serde_json::json;
 use uuid::Uuid;
+use crate::persistence_store::PersistenceStore;
 
 pub struct MessageProcessor {
-    // pub(crate) data_store: Box<dyn DataStore>,
-    // pub(crate) producer: Box<dyn MessageProducer>,
+    pub(crate) data_store: Arc<Box<dyn PersistenceStore  + Sync + Send>>,
+    pub(crate) producer: Arc<Box<dyn MessageProducer + Sync + Send>>,
 }
 
 impl MessageProcessor {
     pub async fn run(&self) {
         println!("Processor turned ON!");
-        let kafka_producer = KafkaPublisher::new();
+        let kafka_producer = KafkaPublisher::new("outbox.topic".to_string());
 
-        let db_config = PgDB {
-            connection_config: String::from(
-                "host=localhost user=admin password=admin dbname=chronos_db",
-            ),
-        };
-        let data_store = PgDB::new(&db_config).await;
 
         loop {
             tokio::time::sleep(Duration::from_secs(1)).await;
@@ -42,13 +37,17 @@ impl MessageProcessor {
             let mut ready_params = Vec::new();
             ready_params.push(param);
 
-            let publish_rows = PgDB::readying_update(&data_store, &ready_params).await;
+            let publish_rows = &self.data_store.ready_to_fire( &ready_params).await;
 
-            println!("Rows Needs Readying:: {:?} @ {:?}", publish_rows.len(),Utc::now());
+            println!(
+                "Rows Needs Readying:: {:?} @ {:?}",
+                publish_rows.len(),
+                Utc::now()
+            );
 
-            let mut ids=String::new();
+            let mut ids: Vec<&str> = Vec::new();
 
-            for row in &publish_rows {
+            for row in publish_rows {
                 let updated_row = TableRow {
                     id: row.get("id"),
                     deadline: row.get("deadline"),
@@ -59,45 +58,46 @@ impl MessageProcessor {
                     message_value: row.get("message_value"),
                 };
 
-                let headers:HashMap<String,String> = match serde_json::from_str(&updated_row.message_headers.to_string()){
-                    Ok(T)=>T,
-                    Err(E)=> { println!("error occurred while parsing");
-                    HashMap::new()}
-                };
-                //TODO: id empty errors panic
-                println!("checking {:?}",headers);
+                let headers: HashMap<String, String> =
+                    match serde_json::from_str(&updated_row.message_headers.to_string()) {
+                        Ok(T) => T,
+                        Err(E) => {
+                            println!("error occurred while parsing");
+                            HashMap::new()
+                        }
+                    };
+                //TODO: handle empty headers
+                // println!("checking {:?}",headers);
 
-
-                let result =
-                    KafkaPublisher::publish(&kafka_producer,
-                                            &updated_row.message_value.to_string(),
-                                            &headers,
-                                            // &updated_row.message_headers,
-                                            // &HashMap::from([
-                                            //     ("Mercury".to_string(), "0.4".to_string())
-                                            // ]),
-                                            &updated_row.message_key.to_string() ).await;
+                let result = kafka_producer
+                    .publish(
+                        updated_row.message_value.to_string(),
+                        Some(headers),
+                        updated_row.message_key.to_string(),
+                    )
+                    .await;
                 match result {
                     Ok(m) => {
-                        ids.push_str(&*("'".to_owned() + &updated_row.id + "'" + ","));
-                        println!("insert success with number changed {:?} @{:?}", m,Utc::now());
-
+                        ids.push(&updated_row.id);
+                        println!(
+                            "insert success with number changed {:?} @{:?}",
+                            m,
+                            Utc::now()
+                        );
                     }
                     Err(e) => {
                         println!("publish failed {:?}", e);
                         // failure detection needs to pick
-
                     }
                 }
             }
 
-
             println!("finished the loop for publish now delete published from DB");
             if ids.len() > 0 {
-                PgDB::delete_fired(&data_store, &ids).await;
-                println!("delete fired id {:?} @{:?}", &ids,Utc::now());
-            }else{
-                println!("no more processing {}",Utc::now().to_rfc3339());
+                let outcome = &self.data_store.delete_fired( &ids.join(",")).await;
+                println!("delete fired id {:?} @{:?} outcome {outcome}", &ids, Utc::now());
+            } else {
+                println!("no more processing {}", Utc::now().to_rfc3339());
             }
 
             println!("after the delete statement");

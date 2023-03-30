@@ -1,117 +1,102 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
-use rdkafka::consumer::{CommitMode, Consumer};
-use std::str::{from_utf8, FromStr};
 use log::{error, info, warn};
+use serde_json::json;
 
-use crate::consumer::ConsumerClient;
-use crate::pg_client::{DBOps, PgDB, TableInsertRow, TableRow};
-use crate::producer::{KafkaPublisher, ProducerMessages};
-use rdkafka::message::{Header, Headers, Message};
-use serde_json::{json, Value};
-use crate::utils::required_headers;
+use std::str::{from_utf8, FromStr};
+use std::sync::Arc;
 
+use crate::consumer::{KafkaConsumer, MessageConsumer};
+use crate::pg_client::{ PgDB, TableInsertRow};
+use crate::producer::{KafkaPublisher, MessageProducer};
+use rdkafka::message::{BorrowedMessage, Message};
+use crate::persistence_store::PersistenceStore;
+
+use crate::utils::{headers_check, required_headers, CHRONOS_ID, DEADLINE};
 
 pub struct MessageReceiver {
-    // pub(crate) consumer: Box<dyn MessageConsumer>,
-    // pub(crate) data_store: Box<dyn DataStore>,
-    // pub(crate) producer: Box<dyn MessageProducer>
+    pub(crate) consumer: Arc< Box<dyn MessageConsumer + Sync + Send>>,
+    pub(crate) producer: Arc<Box<dyn MessageProducer + Sync + Send>>,
+    pub(crate) data_store: Arc<Box<dyn PersistenceStore + Sync + Send>>,
 }
 
+
 impl MessageReceiver {
+    pub fn new(consumer: Arc< Box<dyn MessageConsumer + Sync + Send>>,
+               producer: Arc<Box<dyn MessageProducer + Sync + Send>>,
+               data_store: Arc<Box<dyn PersistenceStore + Sync + Send>>,) -> Self {
+        Self {
+            consumer,
+            producer,
+            data_store
+        }
+    }
     pub async fn run(&self) {
-        let topics = vec!["input.topic"];
 
-        let kafka_consumer = ConsumerClient::new(topics, "amn.test.rust".to_string());
-        ConsumerClient::subsTopics(&kafka_consumer).await;
-        
-        let kafka_producer = KafkaPublisher::new();
+        for _n in 0..100 {
+            // loop {
+            if let Ok(message) = &self.consumer.consume_message().await {
+                if headers_check(&message.headers().unwrap()) {
+                    let new_message = &message;
+                    let headers = required_headers(&new_message).expect("parsing headers failed");
+                    let message_deadline: DateTime<Utc> =
+                        DateTime::<Utc>::from_str(&headers[DEADLINE])
+                            .expect("String date parsing failed");
 
-        let db_config = PgDB {
-            connection_config: String::from(
-                "host=localhost user=admin password=admin dbname=chronos_db",
-            ),
-        };
-        let data_store = PgDB::new(&db_config).await;
+                    if message_deadline <= Utc::now() {
+                        //TODO: missing check the DB is the entry is present and mark it readied
 
-        loop {
-            if let Ok(message) = ConsumerClient::consume_message(&kafka_consumer).await {
-                let new_message = &message;
-                println!("consume new_message :: {:?}@ {:?}", new_message, Utc::now());
-                let headers: HashMap<String,String> = if let Some(reqd_headers) = required_headers(&new_message){
-                    reqd_headers
-                }else{
-                    println!("exception occurred while parsing the headers");
-                    break
-                };
 
-                // if let Some(headers) = new_message.headers() {
-                    // let reqd_headers = headers.iter()
-                    //     .filter(|header| header.key == "chronosID" || header.key =="chronosDeadline")
-                    //     .collect::<HashMap<_,_>>();
+                        let payload = new_message
+                            .payload_view::<str>()
+                            .expect("parsing payload failed")
+                            .unwrap()
+                            .to_string();
+                        let message_key =
+                            from_utf8(new_message.key().expect("no message Key found"))
+                                .unwrap()
+                                .to_string();
+                        let _outcome = &self
+                            .producer
+                            .publish(payload, Some(headers), message_key)
+                            .await
+                            .unwrap()
+                            .expect("Publish failed for received message");
+                    } else {
+                        let chronos_message_id = &headers[CHRONOS_ID];
 
-                    if headers.len() == 2 {
+                        let payload = new_message
+                            .payload_view::<str>()
+                            .expect("parsing payload failed")
+                            .unwrap()
+                            .to_string();
+                        let message_key =
+                            from_utf8(new_message.key().expect("no message Key found")).unwrap();
 
-                        let message_deadline:DateTime<Utc> = DateTime::<Utc>::from_str(
-                            &headers["chronosDeadline"]
-                        )
-                        .expect("String date parsing failed");
-                        let chronos_message_id = &headers["chronosID"];
-
-                        let message_key = from_utf8(new_message.key().expect("no message Key found")).unwrap();
-
-                        if let Some(Ok(payload)) = new_message.payload_view::<str>() {
-
-                            if message_deadline <= Utc::now() {
-                                //TODO: missing check the DB is the entry is present and mark it readied
-                                match KafkaPublisher::publish( &kafka_producer,
-                                                               &payload,
-                                                               &headers,
-                                                               &message_key.to_string() ).await {
-                                    Ok(m) => {
-                                        println!("published message id {:?} @ {:?}", &chronos_message_id, Utc::now());
-                                    }
-                                    Err(e) => {
-                                        println!("publish failed {:?}", e);
-                                    }
-                                }
-                            } else {
-                                let chronos_message_id = &headers.get("chronosID").expect("chronos id missing");
-
-                                let params = TableInsertRow {
-                                    id: &*chronos_message_id,
-                                    deadline: message_deadline,
-                                    message_headers: &serde_json::json!(&headers),
-                                    message_key,
-                                    message_value: &json!(&payload),
-                                };
-                                match PgDB::insert(&data_store, &params).await {
-                                    Ok(m) => {
-                                        println!("insert success with number changed {:?} @ {:?}", &params.id, Utc::now());
-                                    }
-                                    Err(e) => {
-                                        println!("insert failed {:?}", e);
-                                    }
-                                }
-                            }
-                        }
-                    }else{
-                        warn!("message with improper headers on input.topic ");
-                        //TODO: ignore
+                        let params = TableInsertRow {
+                            id: &*chronos_message_id,
+                            deadline: message_deadline,
+                            message_headers: &json!(&headers),
+                            message_key,
+                            message_value: &json!(&payload),
+                        };
+                        self.data_store.insert_to_delay(&params).await.expect("TODO: panic message");
 
                     }
+                } else {
+                    warn!("message with improper headers on input.topic ");
+                    //TODO: ignore
                 }
-
-                // println!("commit received message {:?}", new_message);
-                // if let Ok(m) = &kafka_consumer.client{
-                //     m.commit_message(&message, CommitMode::Async).expect("commit message failed ");
-                // }else{
-                //     println!("Error Occured");
-                // }
-               
-
             }
+
+            // println!("commit received message {:?}", new_message);
+            // if let Ok(m) = &kafka_consumer.client{
+            //     m.commit_message(&message, CommitMode::Async).expect("commit message failed ");
+            // }else{
+            //     println!("Error Occurred");
+            // }
         }
+    }
     // }
 }
