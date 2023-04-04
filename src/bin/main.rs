@@ -1,23 +1,40 @@
-// use chrono::{DateTime, Utc};
-// use chronos::core::{ChronosDeliveryMessage, ChronosError, ChronosMessageStatus, DataStore};
+use std::sync::Arc;
 use chronos::runner::Runner;
 use env_logger::Env;
 use log::{debug, error, info, warn};
+use chronos::consumer::{KafkaConsumer, MessageConsumer};
+use chronos::producer::{KafkaPublisher, MessageProducer};
+use chronos::persistence_store::PersistenceStore;
+use chronos::pg_client::PgDB;
 
-#[macro_use]
-extern crate log;
 
 #[tokio::main]
 async fn main() {
     env_logger::init();
-    let r = Runner {
-        // data_store: Box::new(MyDataStore { data: Vec::new() }),
-        // producer: Box::new(()),
-        // consumer: Box::new(()),
+    match dotenvy::dotenv() {
+        Ok(path) => println!(".env read successfully from {}", path.display()),
+        Err(e) => println!("Could not load .env file: {e}"),
     };
-    log::error!("starting chronos");
+
+    let topics = vec!["inbox.topic"];
+
+    let kafka_consumer = KafkaConsumer::new(topics, "amn.test.rust".to_string());
+    let kafka_producer = KafkaPublisher::new("outbox.topic".to_string());
+    let pg = PgDB{};
+
+    let data_store:Arc<Box<dyn PersistenceStore + Send + Sync >> = Arc::new(Box::new(pg));
+    let producer:Arc<Box<dyn MessageProducer + Send + Sync >> = Arc::new(Box::new(kafka_producer));
+    let consumer:Arc<Box<dyn MessageConsumer + Send + Sync >> = Arc::new(Box::new(kafka_consumer));
+
+
+    let r = Runner {
+        data_store,
+        producer,
+        consumer,
+    };
+
     debug!("debug logs starting chronos");
-    info!("info logs starting chronos");
+
 
     r.run().await;
 }
