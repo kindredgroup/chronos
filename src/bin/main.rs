@@ -7,14 +7,16 @@ use chronos::producer::{KafkaPublisher, MessageProducer};
 use chronos::persistence_store::PersistenceStore;
 use chronos::pg_client::PgDB;
 
-#[macro_use]
-extern crate log;
 
 #[tokio::main]
 async fn main() {
     env_logger::init();
+    match dotenvy::dotenv() {
+        Ok(path) => println!(".env read successfully from {}", path.display()),
+        Err(e) => println!("Could not load .env file: {e}"),
+    };
 
-    let topics = vec!["input.topic"];
+    let topics = vec!["inbox.topic"];
 
     let kafka_consumer = KafkaConsumer::new(topics, "amn.test.rust".to_string());
     let kafka_producer = KafkaPublisher::new("outbox.topic".to_string());
@@ -30,9 +32,9 @@ async fn main() {
         producer,
         consumer,
     };
-    log::error!("starting chronos");
+
     debug!("debug logs starting chronos");
-    info!("info logs starting chronos");
+
 
     r.run().await;
 }

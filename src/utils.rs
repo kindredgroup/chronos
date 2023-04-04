@@ -20,7 +20,7 @@ pub fn required_headers(message: &BorrowedMessage) -> Option<HashMap<String, Str
                     )
                     .parse()
                     .unwrap();
-                    if key == "chronosId" || key == "chronosDeadline" {
+                    if key == CHRONOS_ID || key == DEADLINE || key == "testId"{
                         acc.insert(key, value);
                     }
                     acc

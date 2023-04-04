@@ -1,11 +1,11 @@
 use anyhow::Error;
 use async_trait::async_trait;
-use log::{debug, error};
+use log::{debug};
 use rdkafka::client::ClientContext;
 use rdkafka::config::{ClientConfig, RDKafkaLogLevel};
 use rdkafka::consumer::stream_consumer::StreamConsumer;
 use rdkafka::consumer::{Consumer, ConsumerContext};
-
+use std::{ env };
 use rdkafka::message::BorrowedMessage;
 
 
@@ -21,7 +21,8 @@ pub fn consumer(group_id: String) -> Result<StreamConsumer<CustomContext>, Error
     let context = CustomContext;
 
     // let group_id = "amn.test.rust";
-    let brokers = "localhost:9093";
+    let brokers = env::var("KAFKA_BROKERS").expect("missing KAFKA_BROKERS in env");
+
     let consumer: LoggingConsumer = ClientConfig::new()
         .set("group.id", group_id)
         .set("bootstrap.servers", brokers)
@@ -78,7 +79,8 @@ impl MessageConsumer for KafkaConsumer {
 
      async fn subscribe(&self) {
         debug!("Topics {:?}", &self.topics);
-        &self
+        println!("Topics {:?}", &self.topics);
+        let _ = &self
             .client
             .as_ref()
             .expect("unable to get the clint")
@@ -87,13 +89,14 @@ impl MessageConsumer for KafkaConsumer {
     }
     async fn consume_message(&self)->Result<BorrowedMessage, &Error> {
        
-        println!("route to consume");
+        println!("route to consume from {:?}", &self.topics);
+
 
         return match &self.client {
             Ok(consumer) => {
                 println!("success");
-                let subs = consumer.subscription().expect("failed to fetch");
-                println!("subs lists {:?}",subs );
+                // let subs = consumer.subscription().expect("failed to fetch");
+                // println!("subs lists {:?}",subs );
                 let  input_message: BorrowedMessage = consumer.recv().await.expect("message recv error");
                 Ok(input_message)
                 

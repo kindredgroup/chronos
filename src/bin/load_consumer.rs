@@ -21,7 +21,7 @@ pub async fn main() {
     // let r = Runner {};
     // r.run().await;
 
-    let topics = vec!["input.topic", "outbox.topic"];
+    let topics = vec!["inbox.topic", "outbox.topic"];
     let kafka_consumer = KafkaConsumer::new(topics, "load.amn.test".to_string());
     kafka_consumer.subscribe().await;
     let mut hist_in = Histogram::<u64>::new(2).unwrap();
@@ -51,7 +51,7 @@ pub async fn main() {
                 let key = format!("{}", &header);
                 // println!("{:?} {:?} {:?}",m_topic, m_timestamp, headers);
 
-                if &m_topic == &"input.topic" {
+                if &m_topic == &"inbox.topic" {
                     println!("{:?} - {:?}", key, m_topic);
                     input_time_records.insert(key, m_timestamp);
                     hist_in

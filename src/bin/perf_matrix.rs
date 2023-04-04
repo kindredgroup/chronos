@@ -26,7 +26,7 @@ struct Args {
     brokers: String,
 
     ///  kafka topic name
-    #[arg(short, long , default_value_t=String::from("input.topic"))]
+    #[arg(short, long , default_value_t=String::from("inbox.topic"))]
     topic: String,
 
     ///  Number of messages
@@ -46,7 +46,7 @@ pub async fn main() {
 
     let time_lapse = 3;
     // let producer_thread = tokio::task::spawn( async move {
-    let producer_client = KafkaPublisher::new("input.topic".to_string());
+    let producer_client = KafkaPublisher::new("inbox.topic".to_string());
     let message = "{message:test message}";
 
     let mut pub_futures: Vec<_> = Vec::new();
@@ -86,14 +86,14 @@ pub async fn main() {
     }
 
     // thread::sleep(Duration::from_secs(3));
-    let runner = Runner {};
-    runner.run().await;
+    // let runner = Runner {};
+    // runner.run().await;
     // });
 
     // let consumer_thread = tokio::task::spawn(async move  {
 
     // thread::sleep(Duration::from_secs(15));
-    let topics = vec!["input.topic", "outbox.topic"];
+    let topics = vec!["inbox.topic", "outbox.topic"];
     let kafka_consumer = KafkaConsumer::new(topics, "load.amn.test".to_string());
     kafka_consumer.subscribe().await;
 

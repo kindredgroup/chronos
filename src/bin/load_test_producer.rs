@@ -16,7 +16,7 @@ struct Args {
     brokers: String,
 
     ///  kafka topic name
-    #[arg(short, long , default_value_t=String::from("input.topic"))]
+    #[arg(short, long , default_value_t=String::from("inbox.topic"))]
     topic: String,
 
     ///  Number of messages
@@ -34,7 +34,7 @@ pub async fn main() {
     println!("Hello from Producer {}", Utc::now().to_rfc3339());
     let matches = Args::parse();
 
-    let producer_client = KafkaPublisher::new("input.topic".to_string());
+    let producer_client = KafkaPublisher::new("inbox.topic".to_string());
     let message = "{message:test message}";
 
     let now_instance = Instant::now();

@@ -34,8 +34,10 @@ impl MessageReceiver {
     }
     pub async fn run(&self) {
 
-        for _n in 0..100 {
-            // loop {
+        println!("Receiver ON!");
+        &self.consumer.subscribe().await;
+        // for _n in 0..100 {
+        loop {
             if let Ok(message) = &self.consumer.consume_message().await {
                 if headers_check(&message.headers().unwrap()) {
                     let new_message = &message;
@@ -85,7 +87,7 @@ impl MessageReceiver {
 
                     }
                 } else {
-                    warn!("message with improper headers on input.topic ");
+                    warn!("message with improper headers on inbox.topic ");
                     //TODO: ignore
                 }
             }
