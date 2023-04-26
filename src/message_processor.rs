@@ -1,22 +1,24 @@
 use std::collections::HashMap;
 use std::sync::Arc;
-
-use crate::pg_client::{ GetReady, PgDB, TableRow};
-use crate::producer::{KafkaPublisher, MessageProducer};
 use chrono::Utc;
 use std::time::Duration;
 use uuid::Uuid;
-use crate::persistence_store::PersistenceStore;
+use crate::kafka::producer::KafkaProducer;
+use tokio_postgres::{Row};
+use serde_json::{json, Value};
+use crate::postgres::pg::{GetReady, Pg, TableRow};
+use crate::postgres::config::PgConfig;
+use crate::postgres::errors::PgError;
+
 
 pub struct MessageProcessor {
-    pub(crate) data_store: Arc<Box<dyn PersistenceStore  + Sync + Send>>,
-    pub(crate) producer: Arc<Box<dyn MessageProducer + Sync + Send>>,
+    pub(crate) data_store: Arc<Box<Pg>>,
+    pub(crate) producer: Arc<Box<KafkaProducer>>,
 }
 
 impl MessageProcessor {
     pub async fn run(&self) {
-        println!("Processor turned ON!");
-        let kafka_producer = KafkaPublisher::new("outbox.topic".to_string());
+
 
 
         loop {
@@ -37,7 +39,7 @@ impl MessageProcessor {
             let mut ready_params = Vec::new();
             ready_params.push(param);
 
-            let publish_rows = &self.data_store.ready_to_fire( &ready_params).await;
+            let publish_rows = &self.data_store.ready_to_fire( &ready_params).await.unwrap();
 
             println!(
                 "Rows Needs Readying:: {:?} @ {:?}",
@@ -69,7 +71,7 @@ impl MessageProcessor {
                 //TODO: handle empty headers
                 // println!("checking {:?}",headers);
 
-                let result = kafka_producer
+                let result = self.producer
                     .publish(
                         updated_row.message_value.to_string(),
                         Some(headers),
@@ -94,7 +96,7 @@ impl MessageProcessor {
 
             println!("finished the loop for publish now delete published from DB");
             if ids.len() > 0 {
-                let outcome = &self.data_store.delete_fired( &ids.join(",")).await;
+                let outcome = &self.data_store.delete_fired( &ids.join(",")).await.unwrap();
                 println!("delete fired id {:?} @{:?} outcome {outcome}", &ids, Utc::now());
             } else {
                 println!("no more processing {}", Utc::now().to_rfc3339());

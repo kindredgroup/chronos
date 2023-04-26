@@ -1,27 +1,23 @@
-use crate::consumer:: MessageConsumer;
 use log::{debug, error, info};
 use std::sync::Arc;
+use crate::core::{MessageConsumer, MessageProducer};
+use crate::kafka::consumer::KafkaConsumer;
+use crate::kafka::producer::KafkaProducer;
 
 use crate::message_processor::MessageProcessor;
 use crate::message_receiver::MessageReceiver;
 use crate::monitor::FailureDetector;
-use crate::persistence_store::PersistenceStore;
-use crate::pg_client::PgDB;
-use crate::producer:: MessageProducer;
+use crate::postgres::pg::Pg;
 
-// pub struct Runner {
-//     // pub data_store: Box<dyn DataStore>,
-//     // pub producer: Box<dyn MessageProducer>,
-//     // pub consumer: Box<dyn MessageConsumer>,
-// }
 
 pub struct Runner {
-    pub consumer: Arc< Box<dyn MessageConsumer + Sync + Send>>,
-    pub producer: Arc<Box<dyn MessageProducer + Sync + Send>>,
-    pub data_store: Arc<Box<dyn PersistenceStore + Sync + Send>>,
+    pub consumer: Arc<Box<KafkaConsumer>>,
+    pub producer: Arc<Box<KafkaProducer>>,
+    pub data_store: Arc<Box<Pg>>
 }
 
 impl Runner {
+
     pub async fn run(&self) {
         debug!("Chronos Runner");
 

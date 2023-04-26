@@ -1,12 +1,11 @@
 use std::sync::Arc;
-use crate::pg_client::{ PgDB};
 use chrono::{Duration as chrono_duration, Utc};
 use log::{error, info};
 use std::time::Duration;
-use crate::persistence_store::PersistenceStore;
+use crate::postgres::pg::Pg;
 
 pub struct FailureDetector {
-    pub(crate) data_store: Arc<Box<dyn PersistenceStore + Sync + Send>>,
+    pub(crate) data_store: Arc<Box<Pg>>,
 }
 
 //Needs to accept the poll time
@@ -20,9 +19,9 @@ impl FailureDetector {
             let fetched_rows = &self.data_store.failed_to_fire(
                      Utc::now() + chrono_duration::seconds(100)
                 )
-                .await;
+                .await.unwrap();
 
-            let _id_list = &self.data_store.reset_to_init( &fetched_rows);
+            let _id_list = &self.data_store.reset_to_init( fetched_rows);
 
             //TODO Log the list of id's that failed to fire and were re-sent to the init state
 

@@ -6,26 +6,23 @@ use serde_json::json;
 
 use std::str::{from_utf8, FromStr};
 use std::sync::Arc;
-
-use crate::consumer::{KafkaConsumer, MessageConsumer};
-use crate::pg_client::{ PgDB, TableInsertRow};
-use crate::producer::{KafkaPublisher, MessageProducer};
 use rdkafka::message::{BorrowedMessage, Message};
-use crate::persistence_store::PersistenceStore;
-
-use crate::utils::{headers_check, required_headers, CHRONOS_ID, DEADLINE};
+use crate::kafka::consumer::KafkaConsumer;
+use crate::kafka::producer::KafkaProducer;
+use crate::postgres::pg::{Pg, TableInsertRow};
+use crate::utils::util::{headers_check, required_headers, CHRONOS_ID, DEADLINE};
 
 pub struct MessageReceiver {
-    pub(crate) consumer: Arc< Box<dyn MessageConsumer + Sync + Send>>,
-    pub(crate) producer: Arc<Box<dyn MessageProducer + Sync + Send>>,
-    pub(crate) data_store: Arc<Box<dyn PersistenceStore + Sync + Send>>,
+    pub(crate) consumer: Arc< Box<KafkaConsumer>>,
+    pub(crate) producer: Arc<Box<KafkaProducer>>,
+    pub(crate) data_store: Arc<Box<Pg>>,
 }
 
 
 impl MessageReceiver {
-    pub fn new(consumer: Arc< Box<dyn MessageConsumer + Sync + Send>>,
-               producer: Arc<Box<dyn MessageProducer + Sync + Send>>,
-               data_store: Arc<Box<dyn PersistenceStore + Sync + Send>>,) -> Self {
+    pub fn new(consumer: Arc< Box<KafkaConsumer>>,
+               producer: Arc<Box<KafkaProducer>>,
+               data_store: Arc<Box<Pg>>) -> Self {
         Self {
             consumer,
             producer,
@@ -63,7 +60,6 @@ impl MessageReceiver {
                             .producer
                             .publish(payload, Some(headers), message_key)
                             .await
-                            .unwrap()
                             .expect("Publish failed for received message");
                     } else {
                         let chronos_message_id = &headers[CHRONOS_ID];

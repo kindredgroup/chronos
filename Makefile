@@ -65,28 +65,21 @@ build:
 	$(call pp,build rust...)
 	cargo build
 
-## dev.run-agent-client: 🧪 Runs agent
-dev.run-agent-client:
-	$(call pp,run-agent app...)
-	cargo run --example agent_client --release
 
 ## dev.run: 🧪 Runs rust app in watch mode
 dev.run:
 	$(call pp,run app...)
-	cargo  watch -q -c -x 'run --example certifier_kafka_pg'
+	cargo  watch -q -c -x 'run --example chronos_binary'
 ## run: 🧪 Runs rust app
 run:
 	$(call pp,run app...)
-	cargo run --example certifier_kafka_pg
+	cargo run --example chronos_binary
 
 ## run: 🧪 Runs rust app in release mode
 run.release:
 	$(call pp,run app...)
-	cargo run -r --example certifier_kafka_pg
+	cargo run -r --example chronos_binary
 
-run.with_mock_db:
-	$(call pp,run app...)
-	cargo run -r --example certifier_kafka_dbmock
 
 ## lint: 🧹 Checks for lint failures on rust
 lint:
