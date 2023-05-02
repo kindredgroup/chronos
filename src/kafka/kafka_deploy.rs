@@ -27,8 +27,8 @@ pub async fn create_topics(replication_factor: i32, num_of_partitions: i32) -> R
     let kafka_config = KafkaConfig::from_env();
     println!("kafka configs received from env... {kafka_config:#?}");
 
-    let _ = create_topic(&kafka_config, kafka_config.in_topic.as_str(),replication_factor, num_of_partitions).await;
-    let _ = create_topic(&kafka_config, kafka_config.out_topic.as_str(),replication_factor, num_of_partitions).await;
+    let _ = create_topic(&kafka_config, kafka_config.in_topic.as_str(),replication_factor, num_of_partitions).await?;
+    let _ = create_topic(&kafka_config, kafka_config.out_topic.as_str(),replication_factor, num_of_partitions).await?;
     Ok(())
 }
 
