@@ -73,7 +73,7 @@ impl MessageReceiver {
                             message_value: &serde_json::from_slice(&payload).expect("de-ser failed for payload"),
                         };
                         let insert_time = Instant::now();
-                        self.data_store.insert_to_delay(&params).await.expect("TODO: panic message");
+                        self.data_store.insert_to_delay(&params).await.expect("insert to db failed");
                         // println!("insert took: {:?}", insert_time.elapsed())
 
                     }

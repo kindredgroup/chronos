@@ -107,7 +107,7 @@ impl Pg {
 
 impl Pg {
     pub(crate) async fn insert_to_delay(&self, params: &TableInsertRow<'_>) -> Result<u64, PgError> {
-   let get_client_instant = Instant::now();
+    let get_client_instant = Instant::now();
         let pg_client =  self.get_client().await?;
         let insert_query =
             "INSERT INTO hanger (id, deadline,  message_headers, message_key, message_value)
@@ -201,7 +201,7 @@ impl Pg {
         let query_execute_instant = Instant::now();
         let pg_client = self.get_client().await?;
 
-        let get_query = "SELECT * from hanger where readied_at > $1";
+            let get_query = "SELECT * from hanger where readied_at > $1";
         let response = pg_client
             .query(get_query, &[&delay_time])
             .await
