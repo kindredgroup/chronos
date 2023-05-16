@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::thread;
 use chrono::Utc;
 use std::time::Duration;
 use uuid::Uuid;
@@ -18,21 +19,20 @@ pub struct MessageProcessor {
 
 impl MessageProcessor {
     pub async fn run(&self) {
-
+        println!("MessageProcessor ON!");
 
 
         loop {
-            tokio::time::sleep(Duration::from_secs(1)).await;
-
-            //TODO: fine tune this 1sec duration
-            let deadline = Utc::now() + chrono::Duration::seconds(1);
+            tokio::time::sleep(Duration::from_millis(10)).await;
+            // println!("MessageProcessor");
+            let deadline = Utc::now();
             let uuid = Uuid::new_v4();
 
             let param = GetReady {
                 readied_at: deadline,
                 readied_by: uuid,
                 deadline,
-                limit: 10,
+                limit: 1000,
                 // order: "asc",
             };
 
@@ -41,14 +41,14 @@ impl MessageProcessor {
 
             let publish_rows = &self.data_store.ready_to_fire( &ready_params).await.unwrap();
 
-            println!(
-                "Rows Needs Readying:: {:?} @ {:?}",
-                publish_rows.len(),
-                Utc::now()
-            );
+            // println!(
+            //     "Rows Needs Readying:: {:?} @ {:?}",
+            //     publish_rows.len(),
+            //     Utc::now()
+            // );
 
-            let mut ids: Vec<&str> = Vec::new();
-
+            let mut ids: Vec<String> = Vec::with_capacity(publish_rows.len());
+            let mut publish_futures = Vec::with_capacity(publish_rows.len());
             for row in publish_rows {
                 let updated_row = TableRow {
                     id: row.get("id"),
@@ -71,21 +71,24 @@ impl MessageProcessor {
                 //TODO: handle empty headers
                 // println!("checking {:?}",headers);
 
-                let result = self.producer
+               publish_futures.push(self.producer
                     .publish(
                         updated_row.message_value.to_string(),
                         Some(headers),
                         updated_row.message_key.to_string(),
-                    )
-                    .await;
+                        updated_row.id.to_string()
+                    ))
+            }
+            let results = futures::future::join_all(publish_futures).await;
+            for result in results {
                 match result {
                     Ok(m) => {
-                        ids.push(&updated_row.id);
-                        println!(
-                            "insert success with number changed {:?} @{:?}",
-                            m,
-                            Utc::now()
-                        );
+                        ids.push(m);
+                        // println!(
+                        //     "insert success with number changed {:?} @{:?}",
+                        //     m,
+                        //     Utc::now()
+                        // );
                     }
                     Err(e) => {
                         println!("publish failed {:?}", e);
@@ -94,15 +97,13 @@ impl MessageProcessor {
                 }
             }
 
-            println!("finished the loop for publish now delete published from DB");
+        //    println!("finished the loop for publish now delete published from DB");
             if ids.len() > 0 {
-                let outcome = &self.data_store.delete_fired( &ids.join(",")).await.unwrap();
-                println!("delete fired id {:?} @{:?} outcome {outcome}", &ids, Utc::now());
-            } else {
-                println!("no more processing {}", Utc::now().to_rfc3339());
+                let outcome = &self.data_store.delete_fired( &ids).await.unwrap();
+               // println!("delete fired id {:?} @{:?} outcome {outcome}", &ids, Utc::now());
             }
 
-            println!("after the delete statement");
+            //println!("after the delete statement");
 
             // if let Ok(messages) =
             // {

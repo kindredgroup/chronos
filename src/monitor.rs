@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::thread;
 use chrono::{Duration as chrono_duration, Utc};
 use log::{error, info};
 use std::time::Duration;
@@ -17,12 +18,12 @@ impl FailureDetector {
 
 
             let fetched_rows = &self.data_store.failed_to_fire(
-                     Utc::now() + chrono_duration::seconds(100)
+                     Utc::now() - chrono_duration::seconds(10)
                 )
                 .await.unwrap();
-
-            let _id_list = &self.data_store.reset_to_init( fetched_rows);
-
+            if fetched_rows.len() > 0 {
+                let _id_list = &self.data_store.reset_to_init( fetched_rows).await.unwrap();
+            }
             //TODO Log the list of id's that failed to fire and were re-sent to the init state
 
         }

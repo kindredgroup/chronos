@@ -1,6 +1,5 @@
 use rdkafka::message::{BorrowedHeaders, BorrowedMessage, Header, Headers, OwnedHeaders};
 use rdkafka::Message;
-use serde::de::Unexpected::Str;
 use std::collections::HashMap;
 
 pub static CHRONOS_ID: &str = "chronosId";
@@ -13,16 +12,12 @@ pub fn required_headers(message: &BorrowedMessage) -> Option<HashMap<String, Str
             headers
                 .iter()
                 .fold(HashMap::<String, String>::new(), |mut acc, header| {
-                    // let (key,value) = header;
                     let key: String = header.key.parse().unwrap();
                     let value: String = String::from_utf8_lossy(
-                        header.value.expect("utf8 parsing for header value failed"),
-                    )
-                    .parse()
-                    .unwrap();
-                    if key == CHRONOS_ID || key == DEADLINE || key == "testId"{
-                        acc.insert(key, value);
-                    }
+                        header.value.expect("utf8 parsing for header value failed")
+                    ).into_owned();
+
+                    acc.insert(key, value);
                     acc
                 });
         return Some(reqd_headers);
@@ -52,4 +47,16 @@ pub fn headers_check(headers: &BorrowedHeaders) -> bool {
         == 2;
 
     return outcome;
+}
+
+pub fn get_payload_utf8<'a>(message:&'a BorrowedMessage)->&'a [u8]{
+    message
+        .payload()
+        .expect("parsing payload failed")
+}
+
+pub fn get_message_key(message: &BorrowedMessage)->String{
+    let key = String::from_utf8_lossy(message.key().expect("No key found for message"))
+        .to_string();
+    key
 }

@@ -30,7 +30,8 @@ impl KafkaProducer {
         message: String,
         headers: Option<HashMap<String, String>>,
         key: String,
-    ) -> Result<(), KafkaAdapterError> {
+        id: String
+    ) -> Result<String, KafkaAdapterError> {
         let o_header = into_headers(&headers.unwrap());
         // println!("headers {:?}", o_header);
         // println!("headers {:?} headers--{:?}", &headers["chronosId)"].to_string(), &headers["chronosDeadline)"].to_string());
@@ -45,7 +46,7 @@ impl KafkaProducer {
             )
             .await
             .map_err(|(kafka_error, record)| KafkaAdapterError::PublishMessage(kafka_error, "message publishing failed".to_string()))?;
-        Ok(())
+        Ok(id)
     }
 }
 
