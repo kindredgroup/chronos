@@ -27,7 +27,7 @@ pub trait MessageConsumer {
     async fn consume(&self) -> Result<ChronosDeliveryMessage, ChronosError>;
     fn subscribe(&self);
     fn unsubscrbe(&self);
-    async fn commit(&self, offset: u64);
+    // async fn commit(&self, offset: u64);
 }
 
 #[async_trait]

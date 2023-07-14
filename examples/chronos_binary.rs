@@ -1,23 +1,38 @@
-// use chrono::{DateTime, Utc};
-// use chronos::core::{ChronosDeliveryMessage, ChronosError, ChronosMessageStatus, DataStore};
+use std::sync::Arc;
 use chronos::runner::Runner;
 use env_logger::Env;
 use log::{debug, error, info, warn};
-
-#[macro_use]
-extern crate log;
+use chronos::postgres::pg::Pg;
+use chronos::kafka::producer::KafkaProducer;
+use chronos::kafka::consumer::KafkaConsumer;
+use chronos::kafka::config::KafkaConfig;
+use chronos::postgres::config::PgConfig;
 
 #[tokio::main]
 async fn main() {
     env_logger::init();
-    let r = Runner {
-        // data_store: Box::new(MyDataStore { data: Vec::new() }),
-        // producer: Box::new(()),
-        // consumer: Box::new(()),
+    match dotenvy::dotenv() {
+        Ok(path) => println!(".env read successfully from {}", path.display()),
+        Err(e) => println!("Could not load .env file: {e}"),
     };
-    log::error!("starting chronos");
+
+    let kafka_config = KafkaConfig::from_env();
+    let pg_config = PgConfig::from_env();
+
+    let kafka_consumer = KafkaConsumer::new(&kafka_config);
+    let kafka_producer = KafkaProducer::new(&kafka_config);
+    let data_store=Pg::new(pg_config).await.unwrap();
+
+
+
+    let r = Runner {
+        data_store: Arc::new(Box::new(data_store)),
+        producer: Arc::new(Box::new(kafka_producer)),
+        consumer: Arc::new(Box::new(kafka_consumer))
+    };
+
     debug!("debug logs starting chronos");
-    info!("info logs starting chronos");
+
 
     r.run().await;
 }
