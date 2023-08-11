@@ -1,0 +1,40 @@
+[package]
+name = "chronos_bin"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+#tokio and async
+tokio= {workspace = true}
+async-trait.workspace = true
+futures.workspace = true
+
+#postgres
+tokio-postgres.workspace = true
+deadpool-postgres.workspace = true
+
+#migration 
+refinery.workspace = true
+
+#kafka
+rdkafka.workspace = true 
+
+# serialise-deserialise
+serde.workspace = true
+serde_json.workspace = true
+
+#exception-handling
+thiserror.workspace = true
+
+#config
+clippy.workspace = true
+env_logger.workspace = true
+log.workspace = true
+clap.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+dotenvy.workspace = true
+

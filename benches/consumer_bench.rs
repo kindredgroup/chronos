@@ -1,5 +1,5 @@
 #![allow(unused)]
-use chronos::runner::Runner;
+use chronos_bin::runner::Runner;
 // use criterion::{black_box, criterion_group, criterion_main, Criterion};
 // // use hello_cargo::fibonacci;
 //

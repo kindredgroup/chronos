@@ -1,7 +1,9 @@
 name: build
 
 on:
-  workflow_call:
+  push:
+    branches: 
+      - feature/*
 
 jobs:
   build:
@@ -11,8 +13,24 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-      - run: scripts/ubuntu-setup.sh
       - run: rustup component add rustfmt clippy
       - name: cargo build
         run: cargo build
-      - run: scripts/pre-commit-checks.sh
+  publish:
+      runs-on: ubuntu-latest
+      needs: build
+      if: needs.build.result == 'success'
+      steps:
+        - name: Checkout the repo
+          uses: actions/checkout@v3
+        - name: Login to GitHub Container Registry
+          uses: docker/login-action@v1
+          with:
+            registry: ghcr.io
+            username: ${{ github.actor }}
+            password: ${{ secrets.AMN_PAT }}
+
+        - name: Build the chronos Docker image
+          run: |
+            docker build -f Dockerfile.chronos . --tag ghcr.io/kindredgroup/chronos:latest
+            docker push ghcr.io/kindredgroup/chronos:latest
