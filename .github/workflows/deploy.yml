@@ -1,0 +1,28 @@
+name: push images to ghcr.io
+
+on:
+  push:
+    branches: 
+      - master
+
+jobs:
+  build:
+    uses: ./.github/workflows/rust_build.yml
+  publish:
+      runs-on: ubuntu-latest
+      needs: build
+      if: needs.build.result == 'success'
+      steps:
+        - name: Checkout the repo
+          uses: actions/checkout@v3
+        - name: Login to GitHub Container Registry
+          uses: docker/login-action@v1
+          with:
+            registry: ghcr.io
+            username: ${{ github.actor }}
+            password: ${{ secrets.AMN_PAT }}
+
+        - name: Build the chronos Docker image
+          run: |
+            docker build -f Dockerfile.chronos . --tag ghcr.io/kindredgroup/chronos:latest
+            docker push ghcr.io/kindredgroup/chronos:latest
