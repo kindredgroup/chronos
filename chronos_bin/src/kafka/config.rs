@@ -1,6 +1,6 @@
+use crate::env_var;
 use rdkafka::ClientConfig;
 use std::collections::HashMap;
-use crate::env_var;
 
 #[derive(Debug)]
 pub struct KafkaConfig {

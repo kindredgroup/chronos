@@ -37,22 +37,10 @@ pub trait MessageProducer {
 
 #[async_trait]
 pub trait DataStore {
-    async fn insert(
-        &self,
-        message: ChronosDeliveryMessage,
-    ) -> Result<ChronosDeliveryMessage, ChronosError>;
-    async fn delete(
-        &self,
-        message: ChronosDeliveryMessage,
-    ) -> Result<ChronosDeliveryMessage, ChronosError>;
-    async fn move_to_initial_state(
-        &self,
-        message: ChronosDeliveryMessage,
-    ) -> Result<ChronosDeliveryMessage, ChronosError>;
-    async fn move_to_ready_state(
-        &self,
-        message: ChronosDeliveryMessage,
-    ) -> Result<ChronosDeliveryMessage, ChronosError>;
+    async fn insert(&self, message: ChronosDeliveryMessage) -> Result<ChronosDeliveryMessage, ChronosError>;
+    async fn delete(&self, message: ChronosDeliveryMessage) -> Result<ChronosDeliveryMessage, ChronosError>;
+    async fn move_to_initial_state(&self, message: ChronosDeliveryMessage) -> Result<ChronosDeliveryMessage, ChronosError>;
+    async fn move_to_ready_state(&self, message: ChronosDeliveryMessage) -> Result<ChronosDeliveryMessage, ChronosError>;
     async fn get_messages(
         &self,
         status: ChronosMessageStatus,

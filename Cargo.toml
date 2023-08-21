@@ -55,3 +55,8 @@ criterion = "0.4.0"
 name="consumer_bench"
 harness=false
 
+[dev-dependencies.cargo-husky]
+version = "1"
+default-features = false  # Disable features which are enabled by default
+features = ["user-hooks"]
+

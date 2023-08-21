@@ -1,13 +1,12 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use async_trait::async_trait;
-use log::debug;
-use rdkafka::producer::{BaseRecord, DefaultProducerContext, FutureProducer, FutureRecord, ThreadedProducer};
-use rdkafka::producer::future_producer::OwnedDeliveryResult;
 use crate::kafka::errors::KafkaAdapterError;
 use crate::utils::util::into_headers;
-
+use async_trait::async_trait;
+use log::debug;
+use rdkafka::producer::future_producer::OwnedDeliveryResult;
+use rdkafka::producer::{BaseRecord, DefaultProducerContext, FutureProducer, FutureRecord, ThreadedProducer};
 
 use super::config::KafkaConfig;
 
@@ -30,13 +29,14 @@ impl KafkaProducer {
         message: String,
         headers: Option<HashMap<String, String>>,
         key: String,
-        id: String
+        id: String,
     ) -> Result<String, KafkaAdapterError> {
         let o_header = into_headers(&headers.unwrap());
         // println!("headers {:?}", o_header);
         // println!("headers {:?} headers--{:?}", &headers["chronosId)"].to_string(), &headers["chronosDeadline)"].to_string());
 
-        let delivery_status = self.producer
+        let delivery_status = self
+            .producer
             .send(
                 FutureRecord::to(&self.topic.as_str())
                     .payload(message.as_str())
@@ -49,4 +49,3 @@ impl KafkaProducer {
         Ok(id)
     }
 }
-

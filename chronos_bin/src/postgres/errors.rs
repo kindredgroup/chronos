@@ -13,6 +13,4 @@ pub enum PgError {
     // Tokio-postgres errors
     #[error("Unknown exception")]
     UnknownException(#[from] TokioPostgresError),
-
-
 }

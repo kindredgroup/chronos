@@ -1,5 +1,5 @@
 #![allow(unused)]
-use chronos_bin::runner::Runner;
+// use chronos_bin::runner::Runner;
 // use criterion::{black_box, criterion_group, criterion_main, Criterion};
 // // use hello_cargo::fibonacci;
 //
@@ -14,8 +14,8 @@ use chronos_bin::runner::Runner;
 use criterion::*;
 
 async fn my_function() {
-    let runner = Runner {};
-    runner.run().await;
+    // let runner = Runner {};
+    // runner.run().await;
 }
 
 fn bench(c: &mut Criterion) {
@@ -23,8 +23,8 @@ fn bench(c: &mut Criterion) {
     // Configure Criterion.rs to detect smaller differences and increase sample size to improve
     // precision and counteract the resulting noise.
     group.significance_level(0.1).sample_size(500);
-    group.bench_function("my-function", |b| b.iter(|| my_function()));
-    group.finish();
+    // group.bench_function("my-function", |b| b.iter(|| my_function()));
+    // group.finish();
 }
 
 criterion_group!(benches, bench);
