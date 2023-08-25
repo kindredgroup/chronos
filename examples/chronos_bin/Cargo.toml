@@ -1,0 +1,27 @@
+[package]
+name = "chronos_examples"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+# tokio and async
+tokio.workspace = true
+async-trait.workspace = true
+
+# postgres
+tokio-postgres.workspace = true
+
+# Migration
+refinery.workspace = true
+
+#logging
+env_logger.workspace = true
+log.workspace = true
+
+#confi
+dotenvy.workspace = true
+
+chronos_bin = { path="../../chronos_bin" }

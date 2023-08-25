@@ -1,16 +1,15 @@
+use crate::kafka::producer::KafkaProducer;
+use crate::postgres::config::PgConfig;
+use crate::postgres::errors::PgError;
+use crate::postgres::pg::{GetReady, Pg, TableRow};
+use chrono::Utc;
+use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::thread;
-use chrono::Utc;
 use std::time::Duration;
+use tokio_postgres::Row;
 use uuid::Uuid;
-use crate::kafka::producer::KafkaProducer;
-use tokio_postgres::{Row};
-use serde_json::{json, Value};
-use crate::postgres::pg::{GetReady, Pg, TableRow};
-use crate::postgres::config::PgConfig;
-use crate::postgres::errors::PgError;
-
 
 pub struct MessageProcessor {
     pub(crate) data_store: Arc<Box<Pg>>,
@@ -20,7 +19,6 @@ pub struct MessageProcessor {
 impl MessageProcessor {
     pub async fn run(&self) {
         println!("MessageProcessor ON!");
-
 
         loop {
             tokio::time::sleep(Duration::from_millis(10)).await;
@@ -39,7 +37,7 @@ impl MessageProcessor {
             let mut ready_params = Vec::new();
             ready_params.push(param);
 
-            match &self.data_store.ready_to_fire( &ready_params).await {
+            match &self.data_store.ready_to_fire(&ready_params).await {
                 Ok(publish_rows) => {
                     let mut ids: Vec<String> = Vec::with_capacity(publish_rows.len());
                     let mut publish_futures = Vec::with_capacity(publish_rows.len());
@@ -54,24 +52,22 @@ impl MessageProcessor {
                             message_value: row.get("message_value"),
                         };
 
-                        let headers: HashMap<String, String> =
-                            match serde_json::from_str(&updated_row.message_headers.to_string()) {
-                                Ok(T) => T,
-                                Err(E) => {
-                                    println!("error occurred while parsing");
-                                    HashMap::new()
-                                }
-                            };
+                        let headers: HashMap<String, String> = match serde_json::from_str(&updated_row.message_headers.to_string()) {
+                            Ok(T) => T,
+                            Err(E) => {
+                                println!("error occurred while parsing");
+                                HashMap::new()
+                            }
+                        };
                         //TODO: handle empty headers
                         // println!("checking {:?}",headers);
 
-                        publish_futures.push(self.producer
-                            .publish(
-                                updated_row.message_value.to_string(),
-                                Some(headers),
-                                updated_row.message_key.to_string(),
-                                updated_row.id.to_string()
-                            ))
+                        publish_futures.push(self.producer.publish(
+                            updated_row.message_value.to_string(),
+                            Some(headers),
+                            updated_row.message_key.to_string(),
+                            updated_row.id.to_string(),
+                        ))
                     }
                     let results = futures::future::join_all(publish_futures).await;
                     for result in results {
@@ -86,9 +82,8 @@ impl MessageProcessor {
                         }
                     }
 
-
                     if ids.len() > 0 {
-                        if let Err(outcome_error) = &self.data_store.delete_fired( &ids).await {
+                        if let Err(outcome_error) = &self.data_store.delete_fired(&ids).await {
                             println!("error occurred in message processor delete_fired {}", outcome_error);
                         }
                     }
@@ -96,10 +91,7 @@ impl MessageProcessor {
                 Err(e) => {
                     println!("error occurred in message processor {}", e);
                 }
-
             }
-
-
         }
     }
 }

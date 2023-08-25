@@ -5,7 +5,19 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[dependencies]
+[workspace]
+members = [
+    #  chronos binary
+    "chronos_bin",
+    #  migrations binary
+    "migrations",
+    #example binaries
+    'examples/*'
+]
+
+[workspace.dependencies]
+
+# [dependencies]
 #logging
 env_logger = "0.10.0"
 log = { version = "0.4", features = [  "kv_unstable",    "std",    "kv_unstable_serde" ] }
@@ -22,7 +34,6 @@ tokio = { version = "1", features = ["full"] }
 serde = { version = "1.0.152", features = ["derive"] }
 serde_json = "1.0.93"
 
-# postgres = {version="0.19.4",features=["with-chrono-0_4","with-serde_json-1","with-uuid-1"]  }
 tokio-postgres = {version="0.7.7", features=["with-chrono-0_4","with-serde_json-1","with-uuid-1"]  }
 rdkafka = { version = "0.29.0", features = ["sasl"] }
 clap = { version = "4.1.4", features = ["derive"] }
@@ -34,7 +45,6 @@ uuid = { version="1.3.0", features = [
 ] }
 dotenvy = "0.15"
 clippy = "0.0.302"
-hdrhistogram = "7.5.2"
 deadpool-postgres = "0.10"
 refinery = { version = "0.8.7", features = ["tokio-postgres"] }
 thiserror = "1.0.31"
@@ -44,4 +54,9 @@ criterion = "0.4.0"
 [[bench]]
 name="consumer_bench"
 harness=false
+
+[dev-dependencies.cargo-husky]
+version = "1"
+default-features = false  # Disable features which are enabled by default
+features = ["user-hooks"]
 

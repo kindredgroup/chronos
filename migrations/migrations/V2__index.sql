@@ -1,0 +1,1 @@
+create index idx_hanger_deadline on hanger(deadline)
