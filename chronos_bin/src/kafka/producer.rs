@@ -3,10 +3,7 @@ use std::time::Duration;
 
 use crate::kafka::errors::KafkaAdapterError;
 use crate::utils::util::into_headers;
-use async_trait::async_trait;
-use log::debug;
-use rdkafka::producer::future_producer::OwnedDeliveryResult;
-use rdkafka::producer::{BaseRecord, DefaultProducerContext, FutureProducer, FutureRecord, ThreadedProducer};
+use rdkafka::producer::{FutureProducer, FutureRecord};
 
 use super::config::KafkaConfig;
 
@@ -35,17 +32,17 @@ impl KafkaProducer {
         // println!("headers {:?}", o_header);
         // println!("headers {:?} headers--{:?}", &headers["chronosId)"].to_string(), &headers["chronosDeadline)"].to_string());
 
-        let delivery_status = self
+        let _delivery_status = self
             .producer
             .send(
-                FutureRecord::to(&self.topic.as_str())
+                FutureRecord::to(self.topic.as_str())
                     .payload(message.as_str())
                     .key(key.as_str())
                     .headers(o_header),
                 Duration::from_secs(0),
             )
             .await
-            .map_err(|(kafka_error, record)| KafkaAdapterError::PublishMessage(kafka_error, "message publishing failed".to_string()))?;
+            .map_err(|(kafka_error, _record)| KafkaAdapterError::PublishMessage(kafka_error, "message publishing failed".to_string()))?;
         Ok(id)
     }
 }

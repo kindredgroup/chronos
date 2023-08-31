@@ -1,0 +1,140 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'chronos'",
+            "cargo": {
+                "args": [
+                    "run",
+                    "--no-run",
+                    "--lib",
+                    "--package=chronos"
+                ],
+                "filter": {
+                    "name": "chronos",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "'chronos'",
+            "cargo": {
+                "args": [
+                    "run",
+                  
+                    "--package=chronos_bin",
+                    "--bin=chronos"
+                ],
+                "filter": {
+                    "name": "chronos",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'concurrency_test_example'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=concurrency_test_example",
+                    "--package=chronos"
+                ],
+                "filter": {
+                    "name": "concurrency_test_example",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'concurrency_test_example'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=concurrency_test_example",
+                    "--package=chronos"
+                ],
+                "filter": {
+                    "name": "concurrency_test_example",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug example 'chronos_binary'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--example=chronos_binary",
+                    "--package=chronos"
+                ],
+                "filter": {
+                    "name": "chronos_binary",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in example 'chronos_binary'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--example=chronos_binary",
+                    "--package=chronos"
+                ],
+                "filter": {
+                    "name": "chronos_binary",
+                    "kind": "example"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug benchmark 'consumer_bench'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bench=consumer_bench",
+                    "--package=chronos"
+                ],
+                "filter": {
+                    "name": "consumer_bench",
+                    "kind": "bench"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
