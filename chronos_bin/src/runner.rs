@@ -1,9 +1,7 @@
-use crate::core::{MessageConsumer, MessageProducer};
 use crate::kafka::consumer::KafkaConsumer;
 use crate::kafka::producer::KafkaProducer;
-use log::{debug, error, info};
+use log::debug;
 use std::sync::Arc;
-use std::thread;
 
 use crate::message_processor::MessageProcessor;
 use crate::message_receiver::MessageReceiver;
@@ -11,9 +9,9 @@ use crate::monitor::FailureDetector;
 use crate::postgres::pg::Pg;
 
 pub struct Runner {
-    pub consumer: Arc<Box<KafkaConsumer>>,
-    pub producer: Arc<Box<KafkaProducer>>,
-    pub data_store: Arc<Box<Pg>>,
+    pub consumer: Arc<KafkaConsumer>,
+    pub producer: Arc<KafkaProducer>,
+    pub data_store: Arc<Pg>,
 }
 
 impl Runner {

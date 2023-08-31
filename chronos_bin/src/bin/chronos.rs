@@ -20,9 +20,9 @@ async fn main() {
     let data_store = Pg::new(pg_config).await.unwrap();
 
     let r = Runner {
-        data_store: Arc::new(Box::new(data_store)),
-        producer: Arc::new(Box::new(kafka_producer)),
-        consumer: Arc::new(Box::new(kafka_consumer)),
+        data_store: Arc::new(data_store),
+        producer: Arc::new(kafka_producer),
+        consumer: Arc::new(kafka_consumer),
     };
 
     debug!("debug logs starting chronos");

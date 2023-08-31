@@ -6,15 +6,15 @@ name: release app binary on tag
 on:
     release:
         types: [created]
-    push:
-        tags:
-            # only build on tags that start with 'v'
-            # having major, minor and path version numbers
-            # along with alpha beta support
-            # e.g. v1.0.0-alpha.1, v1.0.0-beta.1, v1.0.0
-        - 'v[0-9]+.[0-9]+.[0-9]+(-[a-zA-Z0-9]+)+.[0-9]?'
-        - 'v[0-9]+.[0-9]+.[0-9]'
-        - 'v[0-9]+.[0-9]+.[0-9]+(-[a-zA-Z0-9]+)'
+    # push:
+    #     tags:
+    #         # only build on tags that start with 'v'
+    #         # having major, minor and path version numbers
+    #         # along with alpha beta support
+    #         # e.g. v1.0.0-alpha.1, v1.0.0-beta.1, v1.0.0
+    #     - 'v[0-9]+.[0-9]+.[0-9]+(-[a-zA-Z0-9]+)+.[0-9]?'
+    #     - 'v[0-9]+.[0-9]+.[0-9]'
+    #     - 'v[0-9]+.[0-9]+.[0-9]+(-[a-zA-Z0-9]+)'
   
 jobs:
   build:
@@ -32,8 +32,17 @@ jobs:
             registry: ghcr.io
             username: ${{ github.actor }}
             password: ${{ secrets.AMN_PAT }}
-
-        - name: Build and publish chronos for chronos image
+        
+        - name: Build and publish chronos for chronos image with ver
           run: |
-            docker build -f Dockerfile.chronos . --tag ghcr.io/$GITHUB_REPOSITORY:$GITHUB_REF_NAME
-            docker push ghcr.io/$GITHUB_REPOSITORY:$GITHUB_REF_NAME
+            docker build -f Dockerfile.chronos . --tag ghcr.io/$GITHUB_REPOSITORY:$GITHUB_REF_NAME --tag ghcr.io/$GITHUB_REPOSITORY:latest
+            docker push ghcr.io/$GITHUB_REPOSITORY:$GITHUB_REF_NAME 
+        
+        - name: publish chronos latest for chronos image replace latest
+          run: |
+            docker push ghcr.io/$GITHUB_REPOSITORY:latest
+        
+        - name: Build and publish the chronos-pg-migration Docker image
+          run: |
+            docker build -f Dockerfile.chronos-pg-migrations . --tag ghcr.io/$GITHUB_REPOSITORY/db-migration:$GITHUB_REF_NAME
+            docker push ghcr.io/$GITHUB_REPOSITORY/db-migration:$GITHUB_REF_NAME

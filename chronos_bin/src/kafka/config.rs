@@ -50,6 +50,8 @@ impl KafkaConfig {
             ("bootstrap.servers", brokers.as_str()),
             ("auto.offset.reset", "earliest"),
             ("socket.keepalive.enable", "true"),
+            ("enable.auto.commit", "true"),
+            ("auto.commit.interval.ms", "10"),
         ]);
 
         base_config.extend(&self.consumer_config_overrides);
@@ -115,7 +117,8 @@ mod tests {
     fn get_kafka_env_variables() -> HashMap<&'static str, &'static str> {
         let env_hashmap = [
             ("KAFKA_BROKERS", "broker1, broker2 "),
-            ("KAFKA_TOPIC", "some-topic"),
+            ("KAFKA_IN_TOPIC", "some-topic"),
+            ("KAFKA_OUT_TOPIC", "some-topic"),
             ("KAFKA_CLIENT_ID", "some-client-id"),
             ("KAFKA_GROUP_ID", "some-group-id"),
             ("KAFKA_USERNAME", ""),
@@ -156,13 +159,13 @@ mod tests {
     }
     #[test]
     #[serial]
-    #[should_panic(expected = "KAFKA_TOPIC environment variable is not defined")]
+    #[should_panic(expected = "KAFKA_IN_TOPIC environment variable is not defined")]
     fn test_from_env_when_env_variable_not_found() {
         get_kafka_env_variables().iter().for_each(|(k, v)| {
             set_env_var(k, v);
         });
 
-        unset_env_var("KAFKA_TOPIC");
+        unset_env_var("KAFKA_IN_TOPIC");
 
         let _config = KafkaConfig::from_env();
 
@@ -194,7 +197,7 @@ mod tests {
         let client_config = config.build_consumer_config();
         assert_eq!(client_config.get("auto.offset.reset").unwrap(), "earliest");
         assert_eq!(client_config.get("socket.keepalive.enable").unwrap(), "true");
-        assert_eq!(client_config.get("enable.auto.commit").unwrap(), "false");
+        assert_eq!(client_config.get("enable.auto.commit").unwrap(), "true");
         assert_eq!(client_config.get("sasl.username").unwrap(), "user");
         assert_eq!(client_config.get("sasl.password").unwrap(), "password");
         assert_eq!(client_config.get("security.protocol").unwrap(), "SASL_PLAINTEXT");

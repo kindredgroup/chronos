@@ -1,5 +1,5 @@
 [package]
-name = "chronos_examples"
+name = "pg_mig"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,21 +7,16 @@ edition = "2021"
 
 [dependencies]
 
-# tokio and async
+#tokio and async
 tokio.workspace = true
 async-trait.workspace = true
 
-# postgres
+#postgres
 tokio-postgres.workspace = true
 
-# Migration
-refinery.workspace = true
+refinery.workspace=true
 
-#logging
-env_logger.workspace = true
-log.workspace = true
-
-#confi
-dotenvy.workspace = true
-
-chronos_bin = { path="../../chronos_bin" }
+[dev-dependencies.cargo-husky]
+version = "1"
+default-features = false  # Disable features which are enabled by default
+features = ["user-hooks"]

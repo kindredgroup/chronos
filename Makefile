@@ -34,9 +34,9 @@ dev.init: install
 	cargo test
 
 ## dev.kafka_init: 🥁 Init kafka topic
-dev.kafka_init:
-	$(call pp,creating kafka topic...)
-	cargo run --example kafka_create_topic
+# dev.kafka_init:
+# 	$(call pp,creating kafka topic...)
+# 	cargo run --example kafka_create_topic
 
 ## pg.create: 🥁 Create database
 pg.create:
@@ -46,7 +46,7 @@ pg.create:
 ## pg.migrate: 🥁 Run migrations on database
 pg.migrate:
 	$(call pp,running migrations on database...)
-	cargo run --example pg_migrations
+	cargo run --package pg_mig --bin chronos-pg-migrations   
 
 # TEST / DEPLOY ###################################################################################
 
@@ -69,16 +69,16 @@ build:
 ## dev.run: 🧪 Runs rust app in watch mode
 dev.run:
 	$(call pp,run app...)
-	cargo  watch -q -c -x 'run --example chronos_binary'
+	cargo  watch -q -c -x 'run --package chronos_bin --bin chronos'
 ## run: 🧪 Runs rust app
 run:
 	$(call pp,run app...)
-	cargo run --example chronos_binary
+	cargo run --package chronos_bin --bin chronos
 
 ## run: 🧪 Runs rust app in release mode
 run.release:
 	$(call pp,run app...)
-	cargo run -r --example chronos_binary
+	cargo run --package chronos_bin --r --bin chronos 
 
 
 ## lint: 🧹 Checks for lint failures on rust
@@ -97,6 +97,16 @@ test.unit:
 test.unit.coverage:
 	$(call pp,rust unit tests...)
 	sh scripts/coverage-report.sh
+
+## docker.up: 🧪 Runs rust app in docker container along with kafka and postgres
+docker.up:
+	$(call pp,run app...)
+	docker-compose --env-file /dev/null up -d
+
+## docker.down: bring down the docker containers
+docker.down:
+	$(call pp,run app...)
+	docker-compose down
 # PHONY ###########################################################################################
 
 # To force rebuild of not-file-related targets, make the targets "phony".
