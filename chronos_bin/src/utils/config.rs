@@ -2,7 +2,7 @@
 pub struct ChronosConfig {
     // pub random_delay: u64,
     pub db_poll_interval: u64,
-    pub time_advance: i64,
+    pub time_advance: u64,
     pub fail_detect_interval: u64,
 }
 
