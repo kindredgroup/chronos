@@ -11,11 +11,11 @@ pub struct PgConfig {
 impl PgConfig {
     pub fn new() -> Self {
         PgConfig {
-            user: env::var("PG_USER").expect("$PG_USER not set"),
-            password: env::var("PG_PASSWORD").expect("$PG_PASSWORD not set"),
-            host: env::var("PG_HOST").expect("$PG_HOST not set"),
-            port: env::var("PG_PORT").expect("$PG_PORT not set"),
-            database: env::var("PG_DATABASE").expect("$PG_DATABASE not set"),
+            user: env::var("PG_USER").expect("PG_USER not set"),
+            password: env::var("PG_PASSWORD").expect("PG_PASSWORD not set"),
+            host: env::var("PG_HOST").expect("PG_HOST not set"),
+            port: env::var("PG_PORT").expect("PG_PORT not set"),
+            database: env::var("PG_DATABASE").expect("PG_DATABASE not set"),
         }
     }
 

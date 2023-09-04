@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 
 #tokio and async
-tokio= {workspace = true}
+tokio.workspace = true
 async-trait.workspace = true
 futures.workspace = true
 
@@ -28,6 +28,7 @@ serde_json.workspace = true
 
 #exception-handling
 thiserror.workspace = true
+anyhow.workspace = true
 
 #config
 clippy.workspace = true
@@ -38,3 +39,14 @@ chrono.workspace = true
 uuid.workspace = true
 dotenvy.workspace = true
 
+#random
+rand.workspace = true
+
+[dev-dependencies]
+serial_test.workspace = true
+
+
+[dev-dependencies.cargo-husky]
+version = "1"
+default-features = false  # Disable features which are enabled by default
+features = ["user-hooks"]

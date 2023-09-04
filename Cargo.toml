@@ -1,18 +1,14 @@
-[package]
-name = "chronos"
-version = "0.1.0"
-edition = "2021"
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [workspace]
+resolver="2"
 members = [
-    #  chronos binary
+    # chronos binary
     "chronos_bin",
-    #  migrations binary
-    "migrations",
-    #example binaries
-    'examples/*'
+    # examples
+    "examples/*",
+    # migrations binary
+    "pg_mig"
 ]
 
 [workspace.dependencies]
@@ -48,15 +44,7 @@ clippy = "0.0.302"
 deadpool-postgres = "0.10"
 refinery = { version = "0.8.7", features = ["tokio-postgres"] }
 thiserror = "1.0.31"
-[dev-dependencies]
-criterion = "0.4.0"
+rand = "0.8.5"
+serial_test = "2.0.0"
 
-[[bench]]
-name="consumer_bench"
-harness=false
-
-[dev-dependencies.cargo-husky]
-version = "1"
-default-features = false  # Disable features which are enabled by default
-features = ["user-hooks"]
 

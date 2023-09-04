@@ -1,4 +1,5 @@
-use migrations::config::PgConfig;
+use pg_mig::config::PgConfig;
+
 mod embedded {
     use refinery::embed_migrations;
     embed_migrations!("migrations");

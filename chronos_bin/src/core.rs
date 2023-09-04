@@ -13,8 +13,8 @@ pub enum ChronosMessageStatus {
 }
 
 pub struct ChronosDeliveryMessage {
-    pub(crate) deadline: DateTime<Utc>,
-    pub(crate) offset: u64,
+    // pub(crate) deadline: DateTime<Utc>,
+    // pub(crate) offset: u64,
 }
 
 #[async_trait]

@@ -17,7 +17,7 @@ pub fn required_headers(message: &BorrowedMessage) -> Option<HashMap<String, Str
         });
         return Some(reqd_headers);
     }
-    return None;
+    None
 }
 
 pub fn into_headers(headers: &HashMap<String, String>) -> OwnedHeaders {
@@ -33,12 +33,12 @@ pub fn headers_check(headers: &BorrowedHeaders) -> bool {
         .iter()
         .filter(|h| {
             let header_keys = [CHRONOS_ID, DEADLINE];
-            return header_keys.contains(&h.key) && h.value.is_some();
+            header_keys.contains(&h.key) && h.value.is_some()
         })
         .count()
         == 2;
 
-    return outcome;
+    outcome
 }
 
 pub fn get_payload_utf8<'a>(message: &'a BorrowedMessage) -> &'a [u8] {

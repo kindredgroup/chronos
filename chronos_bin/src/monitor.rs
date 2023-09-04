@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 pub struct FailureDetector {
-    pub(crate) data_store: Arc<Box<Pg>>,
+    pub(crate) data_store: Arc<Pg>,
 }
 
 //Needs to accept the poll time

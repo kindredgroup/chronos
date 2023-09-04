@@ -17,7 +17,7 @@ services:
   zookeeper:
     image: bitnami/zookeeper:3.7.0
     ports:
-      - 2181:2181
+      - 2180:2181
     volumes:
       - zookeeper:/bitnami/zookeeper
     environment:
@@ -68,34 +68,43 @@ services:
       - kafka
       - zookeeper
 
-#  chronos-delay-scheduler:
-#    image: ${DOCKER_IMAGE}
-#    networks:
-#      - chronos
-#    ports:
-#        - 8181:8181
-#    working_dir: /opt/chronos
-#    volumes:
-#        - ../../:/opt/chronos
-#    environment:
-#      ENVIRONMENT: "dev"
-#      SERVICE_NAME: "chronos-delay-scheduler"
-#      BUILD_VERSION: "0.0.0"
-#      KAFKA_BROKERS: "kafka:9092"
-#      KAFKA_TOPIC_PREFIX: "dev."
-#      KAFKA_CLIENT_ID: "chronos-dev"
-#      KAFKA_GROUP_ID: "chronos-dev"
-#      KAFKA_TOPIC: "ksp.certification"
-#      PG_HOST: "postgres"
-#      PG_PORT: 5432
-#      PG_USER: "admin"
-#      PG_PASSWORD: "admin"
-#      PG_DATABASE: "chronos_db"
-#      RUST_LOG: "${RUST_LOG:-debug}"
-#    depends_on:
-#      - postgres
-#      - zookeeper
-#      - kafka
+  chronos-delay-scheduler:
+   image: chronos
+   networks:
+     - chronos
+   ports:
+       - 8181:8181
+   working_dir: /opt/chronos
+   volumes:
+       - ../../:/opt/chronos
+   environment:
+      ENVIRONMENT: "dev"
+      SERVICE_NAME: "chronos-delay-scheduler"
+      BUILD_VERSION: "0.0.0"
+      KAFKA_BROKERS: "kafka:9092"
+      KAFKA_CLIENT_ID: "chronos"
+      KAFKA_GROUP_ID: "chronos"
+      KAFKA_IN_TOPIC: "chronos.in"
+      KAFKA_OUT_TOPIC: "chronos.out"
+      KAFKA_USERNAME:
+      KAFKA_PASSWORD:
+      PG_HOST: postgres
+      PG_PORT: 5432
+      PG_USER: admin
+      PG_PASSWORD: admin
+      PG_DATABASE: chronos_db
+      PG_POOL_SIZE: 50
+      RUST_LOG: "${RUST_LOG:-info}"
+      # App config (optional)
+      # DELAY_TIME: 0
+      # RANDOMNESS_DELAY: 100
+      # DB_POLL_INTERVAL: 5
+      # TIMING_ADVANCE: 0
+      # FAIL_DETECT_INTERVAL: 500
+   depends_on:
+     - postgres
+     - zookeeper
+     - kafka
 
 
 networks:

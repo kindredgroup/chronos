@@ -24,7 +24,7 @@ fn bench(c: &mut Criterion) {
     // precision and counteract the resulting noise.
     group.significance_level(0.1).sample_size(500);
     // group.bench_function("my-function", |b| b.iter(|| my_function()));
-    // group.finish();
+    group.finish();
 }
 
 criterion_group!(benches, bench);

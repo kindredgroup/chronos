@@ -1,19 +1,14 @@
 use crate::kafka::producer::KafkaProducer;
-use crate::postgres::config::PgConfig;
-use crate::postgres::errors::PgError;
 use crate::postgres::pg::{GetReady, Pg, TableRow};
 use chrono::Utc;
-use serde_json::{json, Value};
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::thread;
 use std::time::Duration;
-use tokio_postgres::Row;
 use uuid::Uuid;
 
 pub struct MessageProcessor {
-    pub(crate) data_store: Arc<Box<Pg>>,
-    pub(crate) producer: Arc<Box<KafkaProducer>>,
+    pub(crate) data_store: Arc<Pg>,
+    pub(crate) producer: Arc<KafkaProducer>,
 }
 
 impl MessageProcessor {
@@ -53,8 +48,8 @@ impl MessageProcessor {
                         };
 
                         let headers: HashMap<String, String> = match serde_json::from_str(&updated_row.message_headers.to_string()) {
-                            Ok(T) => T,
-                            Err(E) => {
+                            Ok(t) => t,
+                            Err(e) => {
                                 println!("error occurred while parsing");
                                 HashMap::new()
                             }
@@ -82,7 +77,7 @@ impl MessageProcessor {
                         }
                     }
 
-                    if ids.len() > 0 {
+                    if !ids.is_empty() {
                         if let Err(outcome_error) = &self.data_store.delete_fired(&ids).await {
                             println!("error occurred in message processor delete_fired {}", outcome_error);
                         }

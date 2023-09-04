@@ -10,10 +10,7 @@ use std::sync::Arc;
 #[tokio::main]
 async fn main() {
     env_logger::init();
-    match dotenvy::dotenv() {
-        Ok(path) => println!(".env read successfully from {}", path.display()),
-        Err(e) => println!("Could not load .env file: {e}"),
-    };
+    dotenv::dotenv().ok();
 
     let kafka_config = KafkaConfig::from_env();
     let pg_config = PgConfig::from_env();
@@ -23,12 +20,12 @@ async fn main() {
     let data_store = Pg::new(pg_config).await.unwrap();
 
     let r = Runner {
-        data_store: Arc::new(Box::new(data_store)),
-        producer: Arc::new(Box::new(kafka_producer)),
-        consumer: Arc::new(Box::new(kafka_consumer)),
+        data_store: Arc::new(data_store),
+        producer: Arc::new(kafka_producer),
+        consumer: Arc::new(kafka_consumer),
     };
 
-    debug!("debug logs starting chronos using example");
+    debug!("debug logs starting chronos");
 
     r.run().await;
 }

@@ -16,7 +16,7 @@ RUN adduser \
 WORKDIR /tmp
 COPY ./ .
 # Build binary in release mode
-RUN cargo build -p chronos_bin --release
+RUN cargo build -p pg_mig --release
 
 #
 # Run image based on buster-slim to reduce image size while still using glibc
