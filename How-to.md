@@ -48,7 +48,8 @@ All the required configurations for Chronos can be passed in environment variabl
 ## Chronos Images 
 Two images are published for each release to `https://github.com/kindredgroup/chronos/pkgs/container/chronos`
 - migrations image 
-- chornos imagex
+- chornos image 
+
 
 
 
