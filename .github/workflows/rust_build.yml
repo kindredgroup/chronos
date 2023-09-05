@@ -11,9 +11,17 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
+      - run: |
+          apt -qq list libsasl2-modules-gssapi-mit libsasl2-dev libssl-dev
+          sudo apt-get install libssl-dev
+          sudo apt-get install libsasl2-dev
+
       - run: rustup component add rustfmt clippy
+      - name: cargo clean
+        run: cargo clean
       - name: cargo build
         run: cargo build
       - name: pre-commit checks
+      #access scripts from scripts folder
         run: scripts/pre-commit-checks.sh
       

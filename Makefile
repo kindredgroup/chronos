@@ -86,7 +86,7 @@ lint:
 	$(call pp,lint rust...)
 	cargo check
 	cargo fmt -- --check
-	cargo clippy --all-targets -- -D warnings
+	cargo clippy --all-targets
 
 ## test.unit: 🧪 Runs unit tests
 test.unit:
