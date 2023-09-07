@@ -3,23 +3,6 @@ name: release app binary on tag
 # push to branch
 on:
     push:
-      branches:
-        - master
-        - feature/*
-        - release/*
-        - hotfix/*
-        - bugfix/*
-        - chore/*
-        - ci/*
-        - docs/*
-        - refactor/*
-        - style/*
-        - test/*
-        - wip/*
-        - revert/*
-        - fix/*
-        - perf/*
-        - revert/*
     
 jobs:
   build:
