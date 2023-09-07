@@ -49,7 +49,7 @@ impl MessageProcessor {
 
                         let headers: HashMap<String, String> = match serde_json::from_str(&updated_row.message_headers.to_string()) {
                             Ok(t) => t,
-                            Err(e) => {
+                            Err(_e) => {
                                 println!("error occurred while parsing");
                                 HashMap::new()
                             }

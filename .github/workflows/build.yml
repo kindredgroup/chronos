@@ -1,0 +1,10 @@
+name: release app binary on tag
+
+# push to branch
+on:
+    push:
+    
+jobs:
+  build:
+    uses: ./.github/workflows/rust_build.yml
+  

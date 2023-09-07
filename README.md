@@ -1,3 +1,5 @@
+[![Build Status](https://img.shields.io/github/actions/workflow/status/kindredgroup/chronos/build.yml?branch=master)](https://github.com/kindredgroup/chronos/actions/workflows/build.yml)
+[![codecov](https://img.shields.io/codecov/c/github/kindredgroup/chronos/master?style=flat-square&logo=codecov)](https://app.codecov.io/gh/kindredgroup/chronos)
 # Chronos
 Chronos (the personification of time in early Greek philosophy) is a persistent time-delay scheduler. It's generic enough to schedule any type of task with a user-specified time delay.
 
@@ -233,12 +235,12 @@ The following requirements are very approximate at this stage.
 
 # FAQ
 ### How can a delay queue be used to schedule long-running tasks?
-Chronos operates at the message level, leaving task execution to the application. If a message corresponds to a long-running task, the application should delegate it to an appropriate task scheduler. An example of that is [Scylla](https://github.com/kindredgroup/scylla). The process might be:
+Chronos operates at the message level, leaving task execution to the application. If a message corresponds to a long-running task, the application should delegate it to an appropriate task scheduler. An example of that is [chronos](https://github.com/kindredgroup/chronos). The process might be:
 
 1. Encode the long-running task as a message.
 2. Publish a message with a delay.
 3. Receive the message later.
-4. Create a Scylla task after receiving the delayed message.
+4. Create a chronos task after receiving the delayed message.
 
 ### Why can't failures be reliably detected in asynchronous systems?
 Depending on your background, you might be used to the term "asynchronous" referring to some task that happens independently of another, often concurrently and in the background. You might even associate asynchrony with futures/promises, async/await keywords, coroutines, continuations, interrupts, callbacks, and so forth. These are all instruments for handling asynchronous computation.

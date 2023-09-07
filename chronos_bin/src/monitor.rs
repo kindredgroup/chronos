@@ -16,7 +16,7 @@ impl FailureDetector {
 
             match &self.data_store.failed_to_fire(Utc::now() - chrono_duration::seconds(10)).await {
                 Ok(fetched_rows) => {
-                    if fetched_rows.len() > 0 {
+                    if !fetched_rows.is_empty() {
                         if let Err(e) = &self.data_store.reset_to_init(fetched_rows).await {
                             println!("error in monitor reset_to_init {}", e);
                         }

@@ -1,12 +1,9 @@
-use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use deadpool_postgres::{Config, GenericClient, ManagerConfig, Object, Pool, PoolConfig, Runtime};
 use log::error;
-use log::kv::Source;
-use serde_json::{json, Value};
 use std::time::{Duration, Instant};
 use tokio_postgres::types::ToSql;
-use tokio_postgres::{Client, NoTls, Row};
+use tokio_postgres::{NoTls, Row};
 use uuid::Uuid;
 
 use crate::postgres::config::PgConfig;
@@ -105,7 +102,6 @@ impl Pg {
 
 impl Pg {
     pub(crate) async fn insert_to_delay(&self, params: &TableInsertRow<'_>) -> Result<u64, PgError> {
-        let get_client_instant = Instant::now();
         let pg_client = self.get_client().await?;
         let insert_query = "INSERT INTO hanger (id, deadline,  message_headers, message_key, message_value)
                  VALUES ($1, $2 ,$3, $4, $5 )";
@@ -147,8 +143,8 @@ impl Pg {
         for i in 0..ids.len() {
             query = query + "$" + (i + 1).to_string().as_str() + ",";
         }
-        query = query.strip_suffix(",").unwrap().to_string();
-        query = query + ")";
+        query = query.strip_suffix(',').unwrap().to_string();
+        query += ")";
         // println!("query {}", query);
         //let sql = format!("DELETE FROM hanger WHERE id IN ({})", ids);
         let stmt = pg_client.prepare(query.as_str()).await?;
@@ -160,7 +156,7 @@ impl Pg {
         Ok(response)
     }
 
-    pub(crate) async fn ready_to_fire(&self, params: &Vec<GetReady>) -> Result<Vec<Row>, PgError> {
+    pub(crate) async fn ready_to_fire(&self, params: &[GetReady]) -> Result<Vec<Row>, PgError> {
         let pg_client = self.get_client().await?;
 
         // println!("readying_update DB");
@@ -235,8 +231,8 @@ impl Pg {
         for i in 0..id_list.len() {
             query = query + "$" + (i + 1).to_string().as_str() + ",";
         }
-        query = query.strip_suffix(",").unwrap().to_string();
-        query = query + ")";
+        query = query.strip_suffix(',').unwrap().to_string();
+        query += ")";
         // println!("reset query {}", query);
         let stmt = pg_client.prepare(query.as_str()).await?;
 

@@ -18,13 +18,13 @@ pub struct MessageReceiver {
 }
 
 impl MessageReceiver {
-    pub fn new(consumer: Arc<KafkaConsumer>, producer: Arc<KafkaProducer>, data_store: Arc<Pg>) -> Self {
-        Self {
-            consumer,
-            producer,
-            data_store,
-        }
-    }
+    // pub fn new(consumer: Arc<KafkaConsumer>, producer: Arc<KafkaProducer>, data_store: Arc<Pg>) -> Self {
+    //     Self {
+    //         consumer,
+    //         producer,
+    //         data_store,
+    //     }
+    // }
     pub async fn run(&self) {
         println!("Receiver ON!");
         let _ = &self.consumer.subscribe().await;
@@ -35,9 +35,9 @@ impl MessageReceiver {
         loop {
             if let Ok(message) = &self.consumer.consume_message().await {
                 total_count += 1;
-                if headers_check(&message.headers().unwrap()) {
+                if headers_check(message.headers().unwrap()) {
                     let new_message = &message;
-                    let headers = required_headers(&new_message).expect("parsing headers failed");
+                    let headers = required_headers(new_message).expect("parsing headers failed");
                     let message_deadline: DateTime<Utc> = DateTime::<Utc>::from_str(&headers[DEADLINE]).expect("String date parsing failed");
 
                     if message_deadline <= Utc::now() {
