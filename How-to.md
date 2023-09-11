@@ -39,7 +39,7 @@ All the required configurations for Chronos can be passed in environment variabl
 |  PG_POOL_SIZE|50|True
 | DELAY_TIME|0|False
 | RANDOMNESS_DELAY|100|False
-| DB_POLL_INTERVAL|5|False
+| MONITOR_DB_POLL|5|False
 | TIMING_ADVANCE|0|False
 | FAIL_DETECT_INTERVAL|500|False
 

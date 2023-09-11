@@ -1,6 +1,6 @@
 use crate::postgres::pg::Pg;
 use crate::utils::config::ChronosConfig;
-use chrono::{Duration as chrono_duration, Utc};
+use chrono::Utc;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -13,7 +13,7 @@ impl FailureDetector {
     pub async fn run(&self) {
         println!("Monitoring On!");
         loop {
-            let _ = tokio::time::sleep(Duration::from_secs(ChronosConfig::from_env().db_poll_interval)).await; // sleep for 10sec
+            let _ = tokio::time::sleep(Duration::from_secs(ChronosConfig::from_env().monitor_db_poll)).await; // sleep for 10sec
 
             match &self
                 .data_store

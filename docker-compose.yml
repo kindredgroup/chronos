@@ -98,7 +98,7 @@ services:
       # App config (optional)
       # DELAY_TIME: 0
       # RANDOMNESS_DELAY: 100
-      # DB_POLL_INTERVAL: 5
+      # MONITOR_POLL_INTERVAL: 5
       # TIMING_ADVANCE: 0
       # FAIL_DETECT_INTERVAL: 500
    depends_on:
