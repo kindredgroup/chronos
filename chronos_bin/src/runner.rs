@@ -1,7 +1,7 @@
 use crate::kafka::consumer::KafkaConsumer;
 use crate::kafka::producer::KafkaProducer;
-use log::debug;
 use std::sync::Arc;
+use tracing::{info_span, instrument};
 
 use crate::message_processor::MessageProcessor;
 use crate::message_receiver::MessageReceiver;
@@ -15,8 +15,10 @@ pub struct Runner {
 }
 
 impl Runner {
+    // #[instrument(skip(self))]
     pub async fn run(&self) {
-        debug!("Chronos Runner");
+        let runner_span = info_span!("runner");
+        let _ = runner_span.enter();
 
         let monitor_ds = Arc::clone(&self.data_store);
 
@@ -38,7 +40,7 @@ impl Runner {
             };
             message_processor.run().await;
         });
-        let message_receiver_handler = tokio::spawn(async {
+        let message_receiver_handler = tokio::task::spawn(async {
             let message_receiver = MessageReceiver {
                 consumer: receiver_consumer,
                 producer: receiver_prod,
