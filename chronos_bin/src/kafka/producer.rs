@@ -18,7 +18,7 @@ pub struct KafkaProducer {
 
 impl KafkaProducer {
     pub fn new(config: &KafkaConfig) -> Self {
-        // Kafka Producer
+        // rdlibkafka goes infinitely trying to connect to kafka broker
         let producer = config.build_producer_config().create().expect("Failed to create producer");
         let topic = config.out_topic.to_owned();
 

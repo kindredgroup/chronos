@@ -18,7 +18,7 @@ impl PgConfig {
             host: env_var!("PG_HOST"),
             port: env_var!("PG_PORT"),
             database: env_var!("PG_DATABASE"),
-            pool_size: env_var!("PG_POOL_SIZE").parse().unwrap(),
+            pool_size: env_var!("PG_POOL_SIZE").parse().unwrap_or(10),
         }
     }
     pub fn get_base_connection_string(&self) -> String {

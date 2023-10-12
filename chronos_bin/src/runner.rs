@@ -46,6 +46,9 @@ impl Runner {
             message_receiver.run().await;
         });
 
-        futures::future::join_all([monitor_handler, message_processor_handler, message_receiver_handler]).await;
+        let future_tuple = futures::future::try_join3(monitor_handler, message_processor_handler, message_receiver_handler).await;
+        if future_tuple.is_err() {
+            log::error!("Chronos Stopping all threads {:?}", future_tuple);
+        }
     }
 }

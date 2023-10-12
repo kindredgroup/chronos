@@ -28,7 +28,7 @@ impl MessageProcessor {
 
             let params = GetReady {
                 readied_at: deadline,
-                readied_by: Uuid::parse_str(&node_id).unwrap(),
+                readied_by: node_id,
                 deadline,
                 // limit: 1000,
                 // order: "asc",

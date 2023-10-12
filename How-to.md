@@ -23,6 +23,7 @@ Use `make withenv RECIPE=docker.up`
 
 ## ENV vars
 All the required configurations for Chronos can be passed in environment variables mentioned below 
+<<<<<<< HEAD
 
 ### Required Vars
 |Env Var|Example Value| 
@@ -50,6 +51,29 @@ These values are set to fine tune performance Chrono in need, refer to [Chronos]
 | PROCESSOR_DB_POLL|5 milli sec
 | TIMING_ADVANCE|0 sec
 | FAIL_DETECT_INTERVAL|10 sec
+=======
+|Env Var|Example Value| Required|
+|----|----|----|
+|KAFKA_BROKERS|"localhost:9093"|True
+|  KAFKA_CLIENT_ID|"chronos"|True
+|  KAFKA_GROUP_ID|"chronos"|True
+|  KAFKA_IN_TOPIC|"chronos.in"|True
+|  KAFKA_OUT_TOPIC|"chronos.out"|True
+|  KAFKA_USERNAME||True
+|  KAFKA_PASSWORD||True
+|  PG_HOST|localhost|True
+|  PG_PORT|5432|True
+|  PG_USER|admin|True
+|  PG_PASSWORD|admin|True
+|  PG_DATABASE|chronos_db|True
+|  PG_POOL_SIZE|50|True
+|NODE_ID|UUID|False
+| DELAY_TIME|0|False
+| RANDOMNESS_DELAY|100|False
+| MONITOR_DB_POLL|5|False
+| TIMING_ADVANCE|0|False
+| FAIL_DETECT_INTERVAL|500|False
+>>>>>>> 6107c18 (fix: handle retry and graceful close for all threads if one is stopped)
 
 
 ## Observability

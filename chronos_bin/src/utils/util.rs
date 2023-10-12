@@ -47,8 +47,8 @@ pub fn headers_check(headers: &BorrowedHeaders) -> bool {
     outcome
 }
 
-pub fn get_payload_utf8<'a>(message: &'a BorrowedMessage) -> &'a [u8] {
-    message.payload().expect("parsing payload failed")
+pub fn get_payload_utf8<'a>(message: &'a BorrowedMessage) -> Option<&'a [u8]> {
+    message.payload()
 }
 
 pub fn get_message_key(message: &BorrowedMessage) -> String {

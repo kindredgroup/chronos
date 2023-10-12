@@ -11,7 +11,6 @@ use rdkafka::message::{BorrowedMessage, Message};
 use std::collections::HashMap;
 use std::str::FromStr;
 use std::sync::Arc;
-use std::time::Instant;
 
 pub struct MessageReceiver {
     pub(crate) consumer: Arc<KafkaConsumer>,
