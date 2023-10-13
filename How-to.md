@@ -67,7 +67,6 @@ These values are set to fine tune performance Chrono in need, refer to [Chronos]
 |  PG_PASSWORD|admin|True
 |  PG_DATABASE|chronos_db|True
 |  PG_POOL_SIZE|50|True
-|NODE_ID|UUID|False
 | DELAY_TIME|0|False
 | RANDOMNESS_DELAY|100|False
 | MONITOR_DB_POLL|5|False

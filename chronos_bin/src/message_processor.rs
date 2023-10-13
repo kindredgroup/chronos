@@ -16,14 +16,23 @@ pub struct MessageProcessor {
 impl MessageProcessor {
     pub async fn run(&self) {
         //Get UUID for the node that deployed this thread
-        let node_id: String = std::env::var("NODE_ID").unwrap_or_else(|_| uuid::Uuid::new_v4().to_string());
-
-        log::info!("MessageProcessor ON @ node_id: {}", node_id);
-
+        let node_id: Uuid = match std::env::var("NODE_ID") {
+            Ok(val) => Uuid::parse_str(&val).unwrap_or_else(|_e| {
+                let uuid = uuid::Uuid::new_v4();
+                log::info!("NODE_ID not found in env assigning {}", uuid);
+                uuid
+            }),
+            Err(_e) => {
+                log::info!("NODE_ID not found in env");
+                uuid::Uuid::new_v4()
+            }
+        };
+        log::info!("node_id {}", node_id);
         let mut delay_controller = DelayController::new(100);
         loop {
-            tokio::time::sleep(Duration::from_millis(ChronosConfig::from_env().processor_db_poll)).await;
-
+            log::debug!("MessageProcessor loop");
+            tokio::time::sleep(Duration::from_millis(10)).await;
+            // tokio::time::sleep(Duration::from_millis(ChronosConfig::from_env().db_poll_interval)).await;
             let deadline = Utc::now() - Duration::from_secs(ChronosConfig::from_env().time_advance);
 
             let params = GetReady {
@@ -104,7 +113,7 @@ impl MessageProcessor {
                         }
 
                         if !ids.is_empty() {
-                            if let Err(outcome_error) = &self.data_store.delete_fired_db(&ids).await {
+                            if let Err(outcome_error) = &self.data_store.delete_fired(&ids).await {
                                 println!("Error: error occurred in message processor delete_fired {}", outcome_error);
                                 //add retry logic here
                             }
@@ -150,7 +159,7 @@ impl MessageProcessor {
         let mut retry_count = 0;
         loop {
             if retry_count < max_retries {
-                match &self.data_store.delete_fired_db(&ids).await {
+                match &self.data_store.delete_fired(&ids).await {
                     Ok(_) => {
                         tracing::Span::current().record("correlationId", ids.join(","));
                         break;
