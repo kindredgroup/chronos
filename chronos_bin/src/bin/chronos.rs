@@ -4,6 +4,7 @@ use chronos_bin::kafka::producer::KafkaProducer;
 use chronos_bin::postgres::config::PgConfig;
 use chronos_bin::postgres::pg::Pg;
 use chronos_bin::runner::Runner;
+use chronos_bin::telemetry::register_telemetry::TelemetryCollector;
 use log::debug;
 use std::sync::Arc;
 
@@ -11,6 +12,9 @@ use std::sync::Arc;
 async fn main() {
     env_logger::init();
     dotenvy::dotenv().ok();
+
+    let tracing_opentelemetry = TelemetryCollector::new();
+    tracing_opentelemetry.register_traces();
 
     let kafka_config = KafkaConfig::from_env();
     let pg_config = PgConfig::from_env();

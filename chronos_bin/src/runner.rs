@@ -15,11 +15,7 @@ pub struct Runner {
 }
 
 impl Runner {
-    // #[instrument(skip(self))]
     pub async fn run(&self) {
-        let runner_span = info_span!("runner");
-        let _ = runner_span.enter();
-
         let monitor_ds = Arc::clone(&self.data_store);
 
         let process_ds = Arc::clone(&self.data_store);

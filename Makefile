@@ -38,6 +38,10 @@ dev.init: install
 # 	$(call pp,creating kafka topic...)
 # 	cargo run --example kafka_create_topic
 
+dev.chronos_ex:
+	$(call pp,creating kafka topic...)
+	cargo run --example chronos_ex
+
 ## pg.create: 🥁 Create database
 pg.create:
 	$(call pp,creating database...)
@@ -70,6 +74,7 @@ build:
 dev.run:
 	$(call pp,run app...)
 	cargo  watch -q -c -x 'run --package chronos_bin --bin chronos'
+
 ## run: 🧪 Runs rust app
 run:
 	$(call pp,run app...)

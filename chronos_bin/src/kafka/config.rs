@@ -4,7 +4,8 @@ use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct KafkaConfig {
-    pub brokers: Vec<String>,
+    pub host: Vec<String>,
+    pub port: String,
     pub in_topic: String,
     pub out_topic: String,
     pub client_id: String,
@@ -18,7 +19,8 @@ pub struct KafkaConfig {
 impl KafkaConfig {
     pub fn from_env() -> Self {
         KafkaConfig {
-            brokers: env_var!("KAFKA_BROKERS", Vec<String>),
+            host: env_var!("KAFKA_HOST", Vec<String>),
+            port: env_var!("KAFKA_PORT"),
             in_topic: env_var!("KAFKA_IN_TOPIC"),
             out_topic: env_var!("KAFKA_OUT_TOPIC"),
             client_id: env_var!("KAFKA_CLIENT_ID"),
@@ -44,7 +46,13 @@ impl KafkaConfig {
 
         let username = self.username.to_owned();
         let password = self.password.to_owned();
-        let brokers = self.brokers.join(",");
+        let brokers = &self.host;
+        let mut brokers = brokers.to_owned();
+        for elm in brokers.iter_mut() {
+            elm.push(':');
+            elm.push_str(&self.port);
+        }
+        let brokers = brokers.join(",");
         let mut base_config = HashMap::from([
             ("group.id", self.group_id.as_str()),
             ("bootstrap.servers", brokers.as_str()),
@@ -76,7 +84,13 @@ impl KafkaConfig {
 
         let username = self.username.to_owned();
         let password = self.password.to_owned();
-        let brokers = self.brokers.join(",");
+        let brokers = &self.host;
+        let mut brokers = brokers.to_owned();
+        for elm in brokers.iter_mut() {
+            elm.push(':');
+            elm.push_str(&self.port);
+        }
+        let brokers = brokers.join(",");
         let mut base_config = HashMap::from([
             ("message.timeout.ms", "30000"),
             ("bootstrap.servers", brokers.as_str()),
@@ -116,7 +130,8 @@ mod tests {
 
     fn get_kafka_env_variables() -> HashMap<&'static str, &'static str> {
         let env_hashmap = [
-            ("KAFKA_BROKERS", "broker1, broker2 "),
+            ("KAFKA_HOST", "broker1, broker2 "),
+            ("KAFKA_PORT", "port"),
             ("KAFKA_IN_TOPIC", "some-topic"),
             ("KAFKA_OUT_TOPIC", "some-topic"),
             ("KAFKA_CLIENT_ID", "some-client-id"),
@@ -129,7 +144,7 @@ mod tests {
 
     fn build_test_kafka_config() -> KafkaConfig {
         KafkaConfig {
-            brokers: vec!["broker1".to_string()],
+            host: vec!["broker1".to_string()],
             in_topic: "in_topic".to_owned(),
             out_topic: "out_topic".to_owned(),
             client_id: "client-id-1".to_string(),
@@ -138,6 +153,7 @@ mod tests {
             password: "password".to_owned(),
             producer_config_overrides: Default::default(),
             consumer_config_overrides: Default::default(),
+            port: "3000".to_string(),
         }
     }
 
@@ -151,7 +167,7 @@ mod tests {
         let config = KafkaConfig::from_env();
 
         assert_eq!(config.client_id, "some-client-id");
-        assert_eq!(config.brokers.len(), 2);
+        assert_eq!(config.host.len(), 2);
 
         get_kafka_env_variables().iter().for_each(|(k, _)| {
             unset_env_var(k);
@@ -184,7 +200,7 @@ mod tests {
     #[test]
     fn test_passing_credentials_to_build_consumer_config() {
         let config = KafkaConfig {
-            brokers: vec!["broker1".to_string()],
+            host: vec!["broker1".to_string()],
             in_topic: "consumer-topic-1".to_owned(),
             out_topic: "consumer-topic-2".to_owned(),
             client_id: "client-id-1".to_string(),
@@ -193,6 +209,7 @@ mod tests {
             password: "password".to_string(),
             producer_config_overrides: Default::default(),
             consumer_config_overrides: Default::default(),
+            port: "3000".to_string(),
         };
         let client_config = config.build_consumer_config();
         assert_eq!(client_config.get("auto.offset.reset").unwrap(), "earliest");
@@ -215,7 +232,7 @@ mod tests {
     #[test]
     fn test_passing_overrides() {
         let mut kafka_config = KafkaConfig {
-            brokers: vec!["broker1".to_string()],
+            host: vec!["broker1".to_string()],
             in_topic: "in_topic".to_owned(),
             out_topic: "out_topic".to_owned(),
             client_id: "client-id-1".to_string(),
@@ -224,6 +241,7 @@ mod tests {
             password: "password".to_string(),
             producer_config_overrides: Default::default(),
             consumer_config_overrides: Default::default(),
+            port: "3000".to_string(),
         };
         let producer_override = HashMap::from([("message.timeout.ms", "10")]);
         let consumer_override = HashMap::from([("auto.offset.reset", "latest")]);

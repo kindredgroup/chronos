@@ -11,3 +11,4 @@ pub mod utils;
 // Infra
 pub mod kafka;
 pub mod postgres;
+pub mod telemetry;

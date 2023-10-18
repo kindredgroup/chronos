@@ -7,7 +7,7 @@ use rdkafka::producer::{FutureProducer, FutureRecord};
 
 use super::config::KafkaConfig;
 
-use tracing::{instrument, span, trace, warn, Level};
+use tracing::instrument;
 
 // Kafka Producer
 // #[derive(Clone)]
@@ -24,12 +24,10 @@ impl KafkaProducer {
 
         Self { producer, topic }
     }
-    pub(crate) async fn publish(&self, message: String, headers: Option<HashMap<String, String>>, key: String) -> Result<String, KafkaAdapterError> {
-        //    Span for kafka publish
-        let producer_span = span!(Level::INFO, "publish_span");
-        let _ = producer_span.enter();
-
-        let unwrap_header = &headers.unwrap();
+    #[instrument(skip_all, fields(topic = %self.topic))]
+    pub(crate) async fn kafka_publish(&self, message: String, headers: Option<HashMap<String, String>>, key: String) -> Result<String, KafkaAdapterError> {
+        // Only because never expecting wrong headers to reach here
+        let unwrap_header = &headers.unwrap_or_default();
 
         let o_header = into_headers(unwrap_header);
         // println!("headers {:?}", o_header);

@@ -7,7 +7,7 @@ use rdkafka::message::BorrowedMessage;
 
 use super::config::KafkaConfig;
 
-use tracing::{info_span, instrument, span, trace, warn};
+use tracing::{instrument, trace, warn};
 
 // Kafka Consumer Client
 pub struct KafkaConsumer {
@@ -54,8 +54,6 @@ impl KafkaConsumer {
     }
 
     pub(crate) async fn subscribe(&self) {
-        let consumer_span = info_span!("consumer_subscribe");
-        let _ = consumer_span.enter();
         match &self.consumer.subscribe(&[&self.topic]) {
             Ok(_) => {
                 info!("subscribed to topic {}", &self.topic);
@@ -66,9 +64,9 @@ impl KafkaConsumer {
             }
         };
     }
-    pub(crate) async fn consume_message(&self) -> Result<BorrowedMessage, KafkaAdapterError> {
-        let consumer_span = info_span!("consume_message");
-        let _ = consumer_span.enter();
+
+    #[instrument(skip(self))]
+    pub(crate) async fn kafka_consume_message(&self) -> Result<BorrowedMessage, KafkaAdapterError> {
         self.consumer.recv().await.map_err(KafkaAdapterError::ReceiveMessage)
     }
 }

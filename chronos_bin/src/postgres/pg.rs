@@ -10,12 +10,11 @@ use uuid::Uuid;
 use crate::postgres::config::PgConfig;
 use crate::postgres::errors::PgError;
 
-use tracing::{event, field, info_span, Span};
+use tracing::event;
 
 #[derive(Clone, Debug)]
 pub struct Pg {
     pub pool: Pool,
-    // pub pg_span: Span,
 }
 
 #[derive(Debug)]
@@ -78,9 +77,6 @@ impl PgAccess {
 
 impl Pg {
     pub async fn new(pg_config: PgConfig) -> Result<Self, PgError> {
-        // let pg_span = info_span!("pg_instance", error = field::Empty);
-        // let _ = pg_span.enter();
-
         let mut config = Config::new();
         config.dbname = Some(pg_config.database);
         config.user = Some(pg_config.user);
@@ -99,10 +95,7 @@ impl Pg {
             let mut tmp_list: Vec<Object> = Vec::new();
             for _ in 1..=pg_config.pool_size {
                 let client = match pool.get().await {
-                    Ok(client) => {
-                        event!(tracing::Level::INFO, "pg client created");
-                        client
-                    }
+                    Ok(client) => client,
                     Err(e) => {
                         error!("error::: Cannot get client from the pool while setting transaction isolation level {:?}", &e);
                         event!(
@@ -146,28 +139,20 @@ impl Pg {
                 event!(tracing::Level::ERROR,error=%e, "pg client creation error");
                 Err(PgError::GetClientFromPool(e))
             }
-            Ok(client) => {
-                event!(tracing::Level::INFO, "pg client created");
-                Ok(client)
-            }
+            Ok(client) => Ok(client),
         }
     }
 }
 
 impl Pg {
-    pub(crate) async fn insert_to_delay(&self, params: &TableInsertRow<'_>) -> Result<u64, PgError> {
-        let delay_query_span = info_span!("insert_to_delay", params = field::Empty, query = field::Empty);
-        let _ = delay_query_span.enter();
-
+    #[tracing::instrument(skip_all)]
+    pub(crate) async fn insert_to_delay_db(&self, params: &TableInsertRow<'_>) -> Result<u64, PgError> {
         let pg_client = self.get_client().await?;
         let mut pg_access = PgAccess { client: pg_client };
         let pg_txn: PgTxn = pg_access.get_txn().await;
 
         let insert_query = "INSERT INTO hanger (id, deadline,  message_headers, message_key, message_value)
         VALUES ($1, $2 ,$3, $4, $5 )";
-
-        delay_query_span.record("query", insert_query);
-        // delay_query_span.record("params", &params);
 
         let query_execute_instant = Instant::now();
         let stmt = pg_txn.txn.prepare(insert_query).await.unwrap();
@@ -200,12 +185,8 @@ impl Pg {
         Ok(outcome.unwrap())
     }
 
-    pub(crate) async fn delete_fired(&self, ids: &Vec<String>) -> Result<u64, String> {
-        // let delete_query_span = info_span!("delete_fired", params = field::Empty, query = field::Empty);
-
-        // let _ = delete_query_span.enter();
-
-        // let query_execute_instant = Instant::now();
+    #[tracing::instrument(skip_all)]
+    pub(crate) async fn delete_fired_db(&self, ids: &Vec<String>) -> Result<u64, String> {
         let pg_client = self.get_client().await.expect("Failed to get client from pool");
         let mut pg_access = PgAccess { client: pg_client };
         let pg_txn: PgTxn = pg_access.get_txn().await;
@@ -218,9 +199,6 @@ impl Pg {
         }
         query = query.strip_suffix(',').unwrap().to_string();
         query += ")";
-        // println!("query {}", query);
-        // delete_query_span.record("query", query.as_str());
-        // delete_query_span.record("params", &values_as_slice);
 
         let stmt = pg_txn.txn.prepare(query.as_str()).await.unwrap();
         let response = pg_txn.txn.execute(&stmt, &values_as_slice).await;
@@ -251,10 +229,8 @@ impl Pg {
         }
     }
 
-    pub(crate) async fn ready_to_fire(&self, param: &GetReady) -> Result<Vec<Row>, String> {
-        // let ready_to_fire_query_span = info_span!("ready_to_fire", params = field::Empty, query = field::Empty);
-        // let _ = ready_to_fire_query_span.enter();
-
+    #[tracing::instrument(skip_all)]
+    pub(crate) async fn ready_to_fire_db(&self, param: &GetReady) -> Result<Vec<Row>, String> {
         //TODO handle get client error gracefully
         let pg_client = self.get_client().await.expect("Unable to get client");
         let mut pg_access = PgAccess { client: pg_client };
@@ -312,17 +288,13 @@ impl Pg {
         }
     }
 
-    pub(crate) async fn failed_to_fire(&self, delay_time: &DateTime<Utc>) -> Result<Vec<Row>, PgError> {
-        let failed_to_fire_query_span = info_span!("failed_to_fire", params = field::Empty, query = field::Empty);
-        let _ = failed_to_fire_query_span.enter();
-
+    #[tracing::instrument(skip_all)]
+    pub(crate) async fn failed_to_fire_db(&self, delay_time: &DateTime<Utc>) -> Result<Vec<Row>, PgError> {
         let query_execute_instant = Instant::now();
         let pg_client = self.get_client().await?;
 
         let get_query = "SELECT * from hanger where readied_at > $1 ORDER BY deadline DESC";
         let stmt = pg_client.prepare(get_query).await?;
-
-        failed_to_fire_query_span.record("query", get_query);
 
         let response = pg_client.query(&stmt, &[&delay_time]).await.expect("get delayed messages query failed");
         let time_elapsed = query_execute_instant.elapsed();
@@ -332,10 +304,8 @@ impl Pg {
         Ok(response)
     }
 
-    pub(crate) async fn reset_to_init(&self, to_init_list: &Vec<Row>) -> Result<Vec<String>, String> {
-        let reset_to_init_query_span = info_span!("reset_to_init", params = field::Empty, query = field::Empty);
-        let _ = reset_to_init_query_span.enter();
-
+    #[tracing::instrument(skip_all)]
+    pub(crate) async fn reset_to_init_db(&self, to_init_list: &Vec<Row>) -> Result<Vec<String>, String> {
         let query_execute_instant = Instant::now();
         let mut id_list = Vec::<String>::new();
         for row in to_init_list {
@@ -360,7 +330,6 @@ impl Pg {
         query = query.strip_suffix(',').unwrap().to_string();
         query += ")";
 
-        reset_to_init_query_span.record("query", query.as_str());
         // println!("reset query {}", query);
         let stmt = pg_txn.txn.prepare(query.as_str()).await.expect("Unable to prepare query");
 

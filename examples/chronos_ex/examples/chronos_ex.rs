@@ -23,43 +23,48 @@ use opentelemetry_otlp::WithExportConfig;
 use std::time::Duration;
 
 use tracing_subscriber::layer::SubscriberExt;
-use tracing_subscriber::Registry;
 
 fn init_tracer() -> Result<sdktrace::Tracer, TraceError> {
-    global::set_text_map_propagator(TraceContextPropagator::new());
-    let os_resource = OsResourceDetector.detect(Duration::from_secs(0));
-    let process_resource = ProcessResourceDetector.detect(Duration::from_secs(0));
-    let sdk_resource = SdkProvidedResourceDetector.detect(Duration::from_secs(0));
-    let env_resource = EnvResourceDetector::new().detect(Duration::from_secs(0));
-    let telemetry_resource = TelemetryResourceDetector.detect(Duration::from_secs(0));
-    opentelemetry_otlp::new_pipeline()
-        .tracing()
-        .with_exporter(opentelemetry_otlp::new_exporter().http().with_endpoint(format!(
-            "{}{}",
-            std::env::var("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT").unwrap_or_else(|_| "http://localhost:4318".to_string()),
-            "/v1/traces"
-        )))
-        .with_trace_config(
-            sdktrace::config().with_resource(
-                os_resource
-                    .merge(&process_resource)
-                    .merge(&sdk_resource)
-                    .merge(&env_resource)
-                    .merge(&telemetry_resource),
-            ),
-        )
-        .install_batch(opentelemetry::runtime::Tokio)
+    let service_name = std::env::var("OTEL_SERVICE_NAME");
+    let trace_exporter = std::env::var("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT");
+    if service_name.is_err() {
+        std::env::set_var("OTEL_SERVICE_NAME", "chronos");
+    }
+    if trace_exporter.is_ok() {
+        global::set_text_map_propagator(TraceContextPropagator::new());
+        let os_resource = OsResourceDetector.detect(Duration::from_secs(0));
+        let process_resource = ProcessResourceDetector.detect(Duration::from_secs(0));
+        let sdk_resource = SdkProvidedResourceDetector.detect(Duration::from_secs(0));
+        let env_resource = EnvResourceDetector::new().detect(Duration::from_secs(0));
+        let telemetry_resource = TelemetryResourceDetector.detect(Duration::from_secs(0));
+        opentelemetry_otlp::new_pipeline()
+            .tracing()
+            .with_exporter(opentelemetry_otlp::new_exporter().http().with_endpoint(format!("{:?}", service_name)))
+            .with_trace_config(
+                sdktrace::config().with_resource(
+                    os_resource
+                        .merge(&process_resource)
+                        .merge(&sdk_resource)
+                        .merge(&env_resource)
+                        .merge(&telemetry_resource),
+                ),
+            )
+            .install_batch(opentelemetry::runtime::Tokio)
+    } else {
+        log::error!("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT not set");
+
+        // trace error
+        Err(TraceError::Other(Box::new(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "OTEL_EXPORTER_OTLP_TRACES_ENDPOINT not set",
+        ))))
+    }
 }
 
 #[tokio::main]
 async fn main() {
-    // env_logger::init();
+    env_logger::init();
     dotenv::dotenv().ok();
-
-    // let tracer = opentelemetry_jaeger::new_agent_pipeline()
-    //     .with_service_name("chronos_tel")
-    //     .install_simple()
-    //     .expect("failed to install tracing");
 
     let tracer = init_tracer().expect("failed to install tracing");
 
@@ -75,6 +80,9 @@ async fn main() {
             println!("error while initializing tracing {}", e);
         }
     }
+    // Initialise telemetry pipeline
+    // init_pipeline();
+    // let tracer = tracer("chronos_tracer");
 
     let kafka_config = KafkaConfig::from_env();
     let pg_config = PgConfig::from_env();
@@ -92,6 +100,4 @@ async fn main() {
     debug!("debug logs starting chronos");
 
     r.run().await;
-    // let runner = Runner {};
-    // runner.run();
 }
