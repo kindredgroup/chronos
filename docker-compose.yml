@@ -152,9 +152,9 @@ services:
     networks:
       - chronos
     restart: unless-stopped
-    # command: [ "--config=/etc/otelcol-config.yml" ]
-    # volumes:
-    #   - ./infra/otelcol-config.yml:/etc/otelcol-config.yml
+    command: [ "--config=/etc/otelcol-config.yml" ]
+    volumes:
+      - ./infra/otelcol-config.yml:/etc/otelcol-config.yml
     ports:
       - "1888:1888"   # pprof extension
       - "13133:13133" # health_check extension

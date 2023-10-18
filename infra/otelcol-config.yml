@@ -2,6 +2,7 @@ receivers:
   otlp:
     protocols:
       grpc:
+      http:
 
 exporters:
   # prometheus:
@@ -19,19 +20,19 @@ exporters:
   #   endpoint: jaeger-all-in-one:4317
   #   tls:
   #     insecure: true
-  otlphttp:
-    endpoint: "localhost:4318"
-    tls:
-      insecure: true
+  # otlphttp:
+  #   endpoint: "localhost:4318"
+  #   tls:
+  #     insecure: true
   otlp:
     # endpoint: jaeger-all-in-one:4317
     endpoint: localhost:4317
     tls:
       insecure: true
-  # jaeger-collector:
-  #   endpoint: jaeger-all-in-one:14250
-  #   tls:
-  #     insecure: true
+  otlp/jaeger:
+      endpoint: jaeger-all-in-one:4317
+      tls:
+        insecure: true
 
 processors:
   batch:
@@ -49,7 +50,7 @@ service:
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [  otlphttp, otlp]
+      exporters: [  otlp, otlp/jaeger]
     # metrics:
     #   receivers: [otlp]
     #   processors: [batch]
