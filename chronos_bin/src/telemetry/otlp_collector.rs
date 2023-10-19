@@ -19,6 +19,8 @@ impl OtlpCollector {
     }
 
     pub fn http_collector_connect(&self, protocol: Protocol) -> Result<sdktrace::Tracer, TraceError> {
+        // service name will be picked from  "OTEL_SERVICE_NAME" env variable
+
         if let Ok(trace_exporter) = std::env::var("OTEL_EXPORTER_OTLP_TRACES_ENDPOINT") {
             global::set_text_map_propagator(TraceContextPropagator::new());
             opentelemetry_otlp::new_pipeline()

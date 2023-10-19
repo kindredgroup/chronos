@@ -20,11 +20,11 @@ pub struct MessageReceiver {
 }
 
 impl MessageReceiver {
-    #[instrument(skip_all, fields(chronos_id))]
+    #[instrument(skip_all, fields(correlationId))]
     pub async fn receiver_publish_to_kafka(&self, new_message: &BorrowedMessage<'_>, headers: HashMap<String, String>) {
         let string_payload = String::from_utf8_lossy(get_payload_utf8(new_message)).to_string();
         let message_key = get_message_key(new_message);
-        tracing::Span::current().record("chronos_id", &message_key);
+        tracing::Span::current().record("correlationId", &message_key);
         let outcome = &self.producer.kafka_publish(string_payload, Some(headers), message_key.to_string()).await;
         match outcome {
             Ok(_) => {
@@ -37,7 +37,7 @@ impl MessageReceiver {
         }
     }
 
-    #[instrument(skip_all, fields(chronos_id))]
+    #[instrument(skip_all, fields(correlationId))]
     pub async fn receiver_insert_to_db(&self, new_message: &BorrowedMessage<'_>, headers: HashMap<String, String>, deadline: DateTime<Utc>) {
         let result_value = &serde_json::from_slice(get_payload_utf8(new_message));
         let payload = match result_value {
@@ -49,7 +49,7 @@ impl MessageReceiver {
         };
 
         let message_key = get_message_key(new_message);
-        tracing::Span::current().record("chronos_id", &message_key);
+        tracing::Span::current().record("correlationId", &message_key);
 
         let params = TableInsertRow {
             id: &headers[CHRONOS_ID],
@@ -80,13 +80,13 @@ impl MessageReceiver {
         }
     }
 
-    #[tracing::instrument(name = "receiver_handle_message", skip_all, fields(chronos_id))]
+    #[tracing::instrument(name = "receiver_handle_message", skip_all, fields(correlationId))]
     pub async fn handle_message(&self, message: &BorrowedMessage<'_>) {
         if headers_check(message.headers().unwrap()) {
             let new_message = &message;
 
             if let Some(headers) = required_headers(new_message) {
-                tracing::Span::current().record("chronos_id", &headers[CHRONOS_ID]);
+                tracing::Span::current().record("correlationId", &headers[CHRONOS_ID]);
                 let message_deadline: DateTime<Utc> = match DateTime::<Utc>::from_str(&headers[DEADLINE]) {
                     Ok(d) => d,
                     Err(e) => {

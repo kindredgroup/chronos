@@ -41,7 +41,7 @@ impl MessageProcessor {
         }
     }
 
-    #[tracing::instrument(skip_all, fields(node_id, chronos_id, is_published, error))]
+    #[tracing::instrument(skip_all, fields(node_id, correlationId, is_published, error))]
     async fn processor_message_ready(&self, params: &GetReady) {
         loop {
             let max_retry_count = 3;
@@ -76,7 +76,7 @@ impl MessageProcessor {
                             tracing::Span::current().record("node_id", &readied_by);
                             headers.insert("readied_by".to_string(), readied_by);
 
-                            tracing::Span::current().record("chronos_id", updated_row.id.to_string());
+                            tracing::Span::current().record("correlationId", updated_row.id.to_string());
 
                             publish_futures.push(self.producer.kafka_publish(
                                 updated_row.message_value.to_string(),
@@ -143,7 +143,7 @@ impl MessageProcessor {
         // let mut row_id: Option<String> = None;
     }
 
-    #[tracing::instrument(skip_all, fields(chronos_ids_deleted))]
+    #[tracing::instrument(skip_all, fields(correlationId))]
     async fn clean_db(&self, ids: Vec<String>) {
         //rety in case delete fails
         let max_retries = 3;
@@ -152,7 +152,7 @@ impl MessageProcessor {
             if retry_count < max_retries {
                 match &self.data_store.delete_fired_db(&ids).await {
                     Ok(_) => {
-                        tracing::Span::current().record("chronos_ids_deleted", ids.join(","));
+                        tracing::Span::current().record("correlationId", ids.join(","));
                         break;
                     }
                     Err(e) => {

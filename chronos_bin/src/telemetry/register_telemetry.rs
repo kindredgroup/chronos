@@ -10,28 +10,38 @@ pub enum TelemetryCollectorType {
 
 pub struct TelemetryCollector {
     pub collector_type: TelemetryCollectorType,
+    pub protocol: Protocol,
 }
 
 impl Default for TelemetryCollector {
     fn default() -> Self {
         TelemetryCollector {
             collector_type: TelemetryCollectorType::Otlp,
+            protocol: Protocol::HttpBinary,
         }
     }
 }
 
 impl TelemetryCollector {
-    pub fn new() -> Self {
-        TelemetryCollector::default()
+    pub fn new(env_protocol: String, collector_type: TelemetryCollectorType) -> Self {
+        let protocol = if env_protocol.to_lowercase().contains("grpc") {
+            Protocol::Grpc
+        } else {
+            Protocol::HttpBinary
+        };
+        TelemetryCollector { collector_type, protocol }
     }
 
     pub fn register_traces(self) {
         let tracer = match &self.collector_type {
             TelemetryCollectorType::Jaegar => instrument_jaegar_pipleline(),
-            TelemetryCollectorType::Otlp => {
-                let otlp_collector = OtlpCollector::new();
-                otlp_collector.http_collector_connect(Protocol::HttpBinary)
-            }
+            TelemetryCollectorType::Otlp => match self.protocol {
+                Protocol::Grpc => todo!(),
+                Protocol::HttpBinary => {
+                    let otlp_collector = OtlpCollector::new();
+                    otlp_collector.http_collector_connect(Protocol::HttpBinary)
+                }
+            },
         };
 
         match tracer {
