@@ -1,6 +1,7 @@
 version: '3.1'
 services:
 
+#postgres DB
   postgres:
     image: postgres:13.3
     ports:
@@ -13,6 +14,24 @@ services:
       POSTGRES_DB: chronos_db
     networks:
       - chronos
+  # migration / init container  
+  # chronos-pg-mig:
+  #  image: mig
+  #  networks:
+  #    - chronos
+  #  working_dir: /opt/chronos
+  #  volumes:
+  #      - ../../:/opt/chronos
+  #  environment:
+  #     PG_HOST: postgres
+  #     PG_PORT: 5432
+  #     PG_USER: admin
+  #     PG_PASSWORD: admin
+  #     PG_DATABASE: chronos_db
+  #     PG_POOL_SIZE: 50
+  #     RUST_LOG: "${RUST_LOG:-info}"
+  #  depends_on:
+  #    - postgres
 
   zookeeper:
     image: bitnami/zookeeper:3.7.0
@@ -68,43 +87,83 @@ services:
       - kafka
       - zookeeper
 
-  chronos-delay-scheduler:
-   image: chronos
-   networks:
-     - chronos
-   ports:
-       - 8181:8181
-   working_dir: /opt/chronos
-   volumes:
-       - ../../:/opt/chronos
-   environment:
-      ENVIRONMENT: "dev"
-      SERVICE_NAME: "chronos-delay-scheduler"
-      BUILD_VERSION: "0.0.0"
-      KAFKA_BROKERS: "kafka:9092"
-      KAFKA_CLIENT_ID: "chronos"
-      KAFKA_GROUP_ID: "chronos"
-      KAFKA_IN_TOPIC: "chronos.in"
-      KAFKA_OUT_TOPIC: "chronos.out"
-      KAFKA_USERNAME:
-      KAFKA_PASSWORD:
-      PG_HOST: postgres
-      PG_PORT: 5432
-      PG_USER: admin
-      PG_PASSWORD: admin
-      PG_DATABASE: chronos_db
-      PG_POOL_SIZE: 50
-      RUST_LOG: "${RUST_LOG:-info}"
-      # App config (optional)
-      # DELAY_TIME: 0
-      # RANDOMNESS_DELAY: 100
-      # MONITOR_POLL_INTERVAL: 5
-      # TIMING_ADVANCE: 0
-      # FAIL_DETECT_INTERVAL: 500
-   depends_on:
-     - postgres
-     - zookeeper
-     - kafka
+  # chronos
+  # chronos-delay-scheduler:
+  #  image: chronos
+  #  networks:
+  #    - chronos
+  #  ports:
+  #      - 8181:8181
+  #  working_dir: /opt/chronos
+  #  volumes:
+  #      - ../../:/opt/chronos
+  #  environment:
+  #     ENVIRONMENT: "dev"
+  #     SERVICE_NAME: "chronos-delay-scheduler"
+  #     BUILD_VERSION: "0.0.0"
+  #     KAFKA_HOST: kafka
+  #     KAFKA_PORT: 9092
+  #     KAFKA_CLIENT_ID: "chronos"
+  #     KAFKA_GROUP_ID: "chronos"
+  #     KAFKA_IN_TOPIC: "chronos.in"
+  #     KAFKA_OUT_TOPIC: "chronos.out"
+  #     KAFKA_USERNAME:
+  #     KAFKA_PASSWORD:
+  #     PG_HOST: postgres
+  #     PG_PORT: 5432
+  #     PG_USER: admin
+  #     PG_PASSWORD: admin
+  #     PG_DATABASE: chronos_db
+  #     PG_POOL_SIZE: 50
+  #     RUST_LOG: "${RUST_LOG:-info}"
+  #     # App config (optional)
+  #     # DELAY_TIME: 0
+  #     # RANDOMNESS_DELAY: 100
+  #     # MONITOR_POLL_INTERVAL: 5
+  #     # TIMING_ADVANCE: 0
+  #     # FAIL_DETECT_INTERVAL: 500
+  #  depends_on:
+  #    - postgres
+  #    - zookeeper
+  #    - kafka
+
+  # ********************
+  # Telemetry Components
+  # ********************
+  # Jaeger
+
+  jaeger-all-in-one:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"
+      - "14268"
+      - "14250"
+    container_name: Jaeger
+    environment:
+    #  COLLECTOR_OTLP_ENABLED is false in case running Jaeger as Backend
+      - COLLECTOR_OTLP_ENABLED=true
+    networks:
+      - chronos
+
+  # Collector
+  otel-collector:
+    image: otel/opentelemetry-collector:latest
+    container_name: otelcol
+    networks:
+      - chronos
+    restart: unless-stopped
+    command: [ "--config=/etc/otelcol-config.yml" ]
+    volumes:
+      - ./infra/otelcol-config.yml:/etc/otelcol-config.yml
+    ports:
+      - "1888:1888"   # pprof extension
+      - "13133:13133" # health_check extension
+      - "4317:4317"   # OTLP gRPC receiver
+      - "4318:4318"   # OTLP HTTP receiver
+      - "55670:55679" # zpages extension
+    depends_on:
+      - jaeger-all-in-one
+
 
 
 networks:

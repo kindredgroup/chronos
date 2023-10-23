@@ -10,7 +10,9 @@ use uuid::Uuid;
 use crate::postgres::config::PgConfig;
 use crate::postgres::errors::PgError;
 
-#[derive(Clone)]
+use tracing::event;
+
+#[derive(Clone, Debug)]
 pub struct Pg {
     pub pool: Pool,
 }
@@ -95,7 +97,12 @@ impl Pg {
                 let client = match pool.get().await {
                     Ok(client) => client,
                     Err(e) => {
-                        error!("error::: Cannot get client from the pool while setting transaction isolation level {:?}", e);
+                        error!("error::: Cannot get client from the pool while setting transaction isolation level {:?}", &e);
+                        event!(
+                            tracing::Level::ERROR,
+                            error = %e,
+                            "error::: Cannot get client from the pool while setting transaction isolation",
+                        );
                         return Err(PgError::GetClientFromPool(e));
                     }
                 };
@@ -129,6 +136,7 @@ impl Pg {
         match self.pool.get().await {
             Err(e) => {
                 error!("error::: {:?}", e);
+                event!(tracing::Level::ERROR,error=%e, "pg client creation error");
                 Err(PgError::GetClientFromPool(e))
             }
             Ok(client) => Ok(client),
@@ -137,13 +145,14 @@ impl Pg {
 }
 
 impl Pg {
-    pub(crate) async fn insert_to_delay(&self, params: &TableInsertRow<'_>) -> Result<u64, PgError> {
+    #[tracing::instrument(skip_all)]
+    pub(crate) async fn insert_to_delay_db(&self, params: &TableInsertRow<'_>) -> Result<u64, PgError> {
         let pg_client = self.get_client().await?;
         let mut pg_access = PgAccess { client: pg_client };
         let pg_txn: PgTxn = pg_access.get_txn().await;
 
         let insert_query = "INSERT INTO hanger (id, deadline,  message_headers, message_key, message_value)
-                 VALUES ($1, $2 ,$3, $4, $5 )";
+        VALUES ($1, $2 ,$3, $4, $5 )";
 
         let query_execute_instant = Instant::now();
         let stmt = pg_txn.txn.prepare(insert_query).await.unwrap();
@@ -166,6 +175,7 @@ impl Pg {
         }
 
         if outcome.is_ok() {
+            event!(tracing::Level::INFO, "insert_to_delay success");
             let cmt_rdy = pg_txn.txn.commit().await;
             if let Err(e) = cmt_rdy {
                 error!("Unable to commit: {}. The original transaction updated: {} rows", e, outcome.unwrap());
@@ -175,8 +185,8 @@ impl Pg {
         Ok(outcome.unwrap())
     }
 
-    pub(crate) async fn delete_fired(&self, ids: &Vec<String>) -> Result<u64, String> {
-        // let query_execute_instant = Instant::now();
+    #[tracing::instrument(skip_all)]
+    pub(crate) async fn delete_fired_db(&self, ids: &Vec<String>) -> Result<u64, String> {
         let pg_client = self.get_client().await.expect("Failed to get client from pool");
         let mut pg_access = PgAccess { client: pg_client };
         let pg_txn: PgTxn = pg_access.get_txn().await;
@@ -189,7 +199,7 @@ impl Pg {
         }
         query = query.strip_suffix(',').unwrap().to_string();
         query += ")";
-        println!("query {}", query);
+
         let stmt = pg_txn.txn.prepare(query.as_str()).await.unwrap();
         let response = pg_txn.txn.execute(&stmt, &values_as_slice).await;
         match response {
@@ -219,7 +229,8 @@ impl Pg {
         }
     }
 
-    pub(crate) async fn ready_to_fire(&self, param: &GetReady) -> Result<Vec<Row>, String> {
+    #[tracing::instrument(skip_all)]
+    pub(crate) async fn ready_to_fire_db(&self, param: &GetReady) -> Result<Vec<Row>, String> {
         //TODO handle get client error gracefully
         let pg_client = self.get_client().await.expect("Unable to get client");
         let mut pg_access = PgAccess { client: pg_client };
@@ -239,6 +250,9 @@ impl Pg {
         // println!("redying success {:?}", &response);
         // Ok(response)
         // println!("ready_to_fire query {}", &param.deadline);
+
+        // ready_to_fire_query_span.record("query", ready_query);
+
         let stmt = pg_txn.txn.prepare(ready_query).await.expect("Unable to prepare query");
         let query_execute_instant = Instant::now();
         let response = pg_txn.txn.query(&stmt, &[&param.readied_at, &param.readied_by, &param.deadline]).await;
@@ -274,7 +288,8 @@ impl Pg {
         }
     }
 
-    pub(crate) async fn failed_to_fire(&self, delay_time: &DateTime<Utc>) -> Result<Vec<Row>, PgError> {
+    #[tracing::instrument(skip_all)]
+    pub(crate) async fn failed_to_fire_db(&self, delay_time: &DateTime<Utc>) -> Result<Vec<Row>, PgError> {
         let query_execute_instant = Instant::now();
         let pg_client = self.get_client().await?;
 
@@ -289,7 +304,8 @@ impl Pg {
         Ok(response)
     }
 
-    pub(crate) async fn reset_to_init(&self, to_init_list: &Vec<Row>) -> Result<Vec<String>, String> {
+    #[tracing::instrument(skip_all)]
+    pub(crate) async fn reset_to_init_db(&self, to_init_list: &Vec<Row>) -> Result<Vec<String>, String> {
         let query_execute_instant = Instant::now();
         let mut id_list = Vec::<String>::new();
         for row in to_init_list {
@@ -313,6 +329,7 @@ impl Pg {
         }
         query = query.strip_suffix(',').unwrap().to_string();
         query += ")";
+
         // println!("reset query {}", query);
         let stmt = pg_txn.txn.prepare(query.as_str()).await.expect("Unable to prepare query");
 

@@ -7,6 +7,8 @@ use rdkafka::producer::{FutureProducer, FutureRecord};
 
 use super::config::KafkaConfig;
 
+use tracing::instrument;
+
 // Kafka Producer
 // #[derive(Clone)]
 pub struct KafkaProducer {
@@ -16,19 +18,18 @@ pub struct KafkaProducer {
 
 impl KafkaProducer {
     pub fn new(config: &KafkaConfig) -> Self {
+        // Kafka Producer
         let producer = config.build_producer_config().create().expect("Failed to create producer");
         let topic = config.out_topic.to_owned();
 
         Self { producer, topic }
     }
-    pub(crate) async fn publish(
-        &self,
-        message: String,
-        headers: Option<HashMap<String, String>>,
-        key: String,
-        id: String,
-    ) -> Result<String, KafkaAdapterError> {
-        let o_header = into_headers(&headers.unwrap());
+    #[instrument(skip_all, fields(topic = %self.topic))]
+    pub(crate) async fn kafka_publish(&self, message: String, headers: Option<HashMap<String, String>>, key: String) -> Result<String, KafkaAdapterError> {
+        // Only because never expecting wrong headers to reach here
+        let unwrap_header = &headers.unwrap_or_default();
+
+        let o_header = into_headers(unwrap_header);
         // println!("headers {:?}", o_header);
         // println!("headers {:?} headers--{:?}", &headers["chronosId)"].to_string(), &headers["chronosDeadline)"].to_string());
 
@@ -43,6 +44,6 @@ impl KafkaProducer {
             )
             .await
             .map_err(|(kafka_error, _record)| KafkaAdapterError::PublishMessage(kafka_error, "message publishing failed".to_string()))?;
-        Ok(id)
+        Ok(unwrap_header["chronosId"].to_string())
     }
 }

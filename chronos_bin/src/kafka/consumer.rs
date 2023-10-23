@@ -7,8 +7,9 @@ use rdkafka::message::BorrowedMessage;
 
 use super::config::KafkaConfig;
 
+use tracing::{instrument, trace, warn};
+
 // Kafka Consumer Client
-// #[derive(Debug, Clone)]
 pub struct KafkaConsumer {
     pub consumer: StreamConsumer,
     pub topic: String,
@@ -18,8 +19,15 @@ impl KafkaConsumer {
     pub fn new(config: &KafkaConfig) -> Self {
         // let consumer = config.build_consumer_config().create().expect("Failed to create consumer");
         let consumer = match config.build_consumer_config().create() {
-            Ok(consumer) => consumer,
+            Ok(consumer) => {
+                //TODO add more information to the trace, which broker, which topic, etc
+                trace!("connected to kafka");
+                consumer
+            }
             Err(e) => {
+                // Add error trace to the span
+                warn!("error creating consumer {:?}", e);
+
                 log::error!("error creating consumer {:?}", e);
                 //retry
                 log::info!("retrying in 5 seconds");
@@ -56,7 +64,9 @@ impl KafkaConsumer {
             }
         };
     }
-    pub(crate) async fn consume_message(&self) -> Result<BorrowedMessage, KafkaAdapterError> {
+
+    #[instrument(skip(self))]
+    pub(crate) async fn kafka_consume_message(&self) -> Result<BorrowedMessage, KafkaAdapterError> {
         self.consumer.recv().await.map_err(KafkaAdapterError::ReceiveMessage)
     }
 }
