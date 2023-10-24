@@ -5,23 +5,24 @@ use std::collections::HashMap;
 pub static CHRONOS_ID: &str = "chronosMessageId";
 pub static DEADLINE: &str = "chronosDeadline";
 
-//TODO check correctness for two headers in this method
 pub fn required_headers(message: &BorrowedMessage) -> Option<HashMap<String, String>> {
     if let Some(headers) = message.headers() {
-        let reqd_headers = headers.iter().fold(HashMap::<String, String>::new(), |mut acc, header| {
-            let key: String = match header.key.parse() {
-                Ok(key) => key,
-                Err(e) => {
-                    log::error!("Error parsing header key: {}", e);
-                    return acc;
+        if headers_check(headers) {
+            let reqd_headers = headers.iter().fold(HashMap::<String, String>::new(), |mut acc, header| {
+                if let Ok(key) = header.key.parse() {
+                    if let Some(value) = header.value {
+                        let value: String = String::from_utf8_lossy(value).into_owned();
+                        acc.insert(key, value);
+                        acc
+                    } else {
+                        acc
+                    }
+                } else {
+                    acc
                 }
-            };
-            let value: String = String::from_utf8_lossy(header.value.expect("utf8 parsing for header value failed")).into_owned();
-
-            acc.insert(key, value);
-            acc
-        });
-        return Some(reqd_headers);
+            });
+            return Some(reqd_headers);
+        }
     }
     None
 }
@@ -35,38 +36,24 @@ pub fn into_headers(headers: &HashMap<String, String>) -> OwnedHeaders {
 }
 
 pub fn headers_check(headers: &BorrowedHeaders) -> bool {
+    // println!("headers_check {:?}", headers);
     let outcome = headers
         .iter()
         .filter(|h| {
             let header_keys = [CHRONOS_ID, DEADLINE];
             header_keys.contains(&h.key) && h.value.is_some()
         })
-        .count()
-        == 2;
+        .count();
 
-    outcome
+    outcome == 2
 }
 
 pub fn get_payload_utf8<'a>(message: &'a BorrowedMessage) -> Option<&'a [u8]> {
     message.payload()
 }
 
-pub fn get_message_key(message: &BorrowedMessage) -> String {
-    let key = String::from_utf8_lossy(message.key().expect("No key found for message")).to_string();
-    key
-}
-
-pub fn get_chronos_id(headers: &BorrowedHeaders) -> String {
-    let value = headers
-        .iter()
-        .find(|h| {
-            let header_keys = [CHRONOS_ID];
-            header_keys.contains(&h.key) && h.value.is_some()
-        })
-        .expect("No chronosId found for message")
-        .value
-        .expect("No chronosId found for message");
-
-    String::from_utf8_lossy(value).into_owned()
-    // return value;
+pub fn get_message_key(message: &BorrowedMessage) -> Option<String> {
+    message.key().map(|key| String::from_utf8_lossy(key).to_string())
+    // let key = String::from_utf8_lossy(.expect("No key found for message")).to_string();
+    // key
 }

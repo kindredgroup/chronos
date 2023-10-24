@@ -1,6 +1,6 @@
 use chrono::{DateTime, Utc};
 use deadpool_postgres::{Config, GenericClient, ManagerConfig, Object, Pool, PoolConfig, Runtime, Transaction};
-use log::{error, info};
+use log::error;
 use std::time::{Duration, Instant};
 use tokio_postgres::error::SqlState;
 use tokio_postgres::types::ToSql;
@@ -179,7 +179,7 @@ impl Pg {
             log::warn!("insert_to_delay query_execute_instant: {:?} ", time_elapsed);
         }
 
-        if outcome.is_ok() {
+        if outcome > 0 {
             event!(tracing::Level::INFO, "insert_to_delay success");
             let cmt_rdy = pg_txn.txn.commit().await;
             if let Err(e) = cmt_rdy {
@@ -274,40 +274,45 @@ impl Pg {
 
         let ready_query = "UPDATE hanger SET readied_at = $1, readied_by = $2 where deadline < $3 AND readied_at IS NULL RETURNING id, deadline, readied_at, readied_by, message_headers, message_key, message_value";
 
-        if let Ok(stmt) = pg_txn.txn.prepare(ready_query).await {
-            let query_execute_instant = Instant::now();
-            let response = pg_txn.txn.query(&stmt, &[&param.readied_at, &param.readied_by, &param.deadline]).await;
-
-            match response {
-                Ok(resp) => {
-                    let cmt_rdy = pg_txn.txn.commit().await;
-                    if let Err(e) = cmt_rdy {
-                        error!("Unable to commit: {}. The original transaction updated: {:?} rows", e, resp);
-                        return Err(format!(
-                            "ready_to_fire: Unable to commit: {}. The original transaction updated: {:?} rows",
-                            e, resp
-                        ));
-                    }
-                    let time_elapsed = query_execute_instant.elapsed();
-                    if time_elapsed > Duration::from_millis(100) {
-                        log::warn!(" ready_to_fire query_execute_instant: {:?} params: {:?}", time_elapsed, param);
-                    }
-                    Ok(resp)
-                }
-                Err(e) => {
-                    if let Some(err_code) = e.code() {
-                        if err_code == &SqlState::T_R_SERIALIZATION_FAILURE {
-                            error!("ready_to_fire: Unable to execute txn due to : {}", e);
-                            return Err(format!("ready_to_fire: Unable to execute txn due to : {}", e));
-                        }
-                    }
-                    error!("ready_to_fire: Unknow exception {:?}", e);
-                    Err(format!("ready_to_fire: Unknow exception {:?}", e))
-                }
+        // println!("ready_query: {}", ready_query);
+        // if let Ok(stmt) = pg_txn.txn.prepare(ready_query).await {
+        let stmt = match pg_txn.txn.prepare(ready_query).await {
+            Ok(stmt) => stmt,
+            Err(e) => {
+                error!("ready_to_fire: Unable to prepare query: {}", e);
+                return Err(format!("ready_to_fire: Unable to prepare query: {}", e));
             }
-        } else {
-            error!("ready_to_fire: Unable to prepare query");
-            Err("ready_to_fire: Unable to prepare query".to_string())
+        };
+
+        let query_execute_instant = Instant::now();
+        let response = pg_txn.txn.query(&stmt, &[&param.readied_at, &param.readied_by, &param.deadline]).await;
+
+        match response {
+            Ok(resp) => {
+                let cmt_rdy = pg_txn.txn.commit().await;
+                if let Err(e) = cmt_rdy {
+                    error!("Unable to commit: {}. The original transaction updated: {:?} rows", e, resp);
+                    return Err(format!(
+                        "ready_to_fire: Unable to commit: {}. The original transaction updated: {:?} rows",
+                        e, resp
+                    ));
+                }
+                let time_elapsed = query_execute_instant.elapsed();
+                if time_elapsed > Duration::from_millis(100) {
+                    log::warn!(" ready_to_fire query_execute_instant: {:?} params: {:?}", time_elapsed, param);
+                }
+                Ok(resp)
+            }
+            Err(e) => {
+                if let Some(err_code) = e.code() {
+                    if err_code == &SqlState::T_R_SERIALIZATION_FAILURE {
+                        error!("ready_to_fire: Unable to execute txn due to : {}", e);
+                        return Err(format!("ready_to_fire: Unable to execute txn due to : {}", e));
+                    }
+                }
+                error!("ready_to_fire: Unknow exception {:?}", e);
+                Err(format!("ready_to_fire: Unknow exception {:?}", e))
+            }
         }
     }
 
@@ -318,7 +323,7 @@ impl Pg {
         let mut pg_access = PgAccess { client: pg_client };
         let pg_txn: PgTxn = pg_access.build_txn().await?;
 
-        log::info!("failed_to_fire delay_time: {:?}", delay_time);
+        log::debug!("failed_to_fire param delay_time: {:?}", delay_time);
         let get_query = "SELECT * from hanger where readied_at > $1 ORDER BY deadline DESC";
         let stmt = pg_txn.txn.prepare(get_query).await?;
 
@@ -369,6 +374,8 @@ impl Pg {
             }
         };
         query += ")";
+
+        println!("query: {}", query);
 
         let stmt = match pg_txn.txn.prepare(query.as_str()).await {
             Ok(stmt) => stmt,

@@ -14,7 +14,7 @@ async fn main() {
     env_logger::init();
     dotenvy::dotenv().ok();
 
-    let protocol = std::env::var("TELEMETRY_PROTOCOL").unwrap_or_else(|_| "http/json".to_string());
+    let protocol = std::env::var("OTEL_EXPORTER_OTLP_PROTOCOL").unwrap_or_else(|_| "http/json".to_string());
 
     let tracing_opentelemetry = TelemetryCollector::new(protocol, TelemetryCollectorType::Otlp);
     tracing_opentelemetry.register_traces();

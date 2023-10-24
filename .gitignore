@@ -1,10 +1,6 @@
 /target
-<<<<<<< HEAD
 .env
-
-=======
 /heathcheck
->>>>>>> a5a05c4 (fix: add health check file with 0 or 1)
 
 
 ### Linux ###
