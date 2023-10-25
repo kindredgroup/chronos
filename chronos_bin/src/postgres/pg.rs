@@ -82,7 +82,7 @@ impl PgAccess {
 
 impl Pg {
     pub async fn new(pg_config: PgConfig) -> Result<Self, PgError> {
-        let port = pg_config.port.parse::<u16>().unwrap_or(0); // make the connection fail and send pack PgError
+        let port = pg_config.port.parse::<u16>().unwrap(); // make the connection fail
         let mut config = Config::new();
         config.dbname = Some(pg_config.database);
         config.user = Some(pg_config.user);

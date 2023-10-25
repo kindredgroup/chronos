@@ -30,16 +30,6 @@ impl MessageProcessor {
         node_id
     }
 
-    fn gather_ids(result: Result<String, String>) -> String {
-        match result {
-            Ok(m) => m,
-            Err(e) => {
-                log::error!("Error: delayed message publish failed {:?}", e);
-                "".to_string()
-            }
-        }
-    }
-
     #[tracing::instrument(skip_all, fields(correlationId))]
     async fn prepare_to_publish(&self, row: Row) -> Result<String, String> {
         let updated_row = TableRow {
@@ -54,8 +44,8 @@ impl MessageProcessor {
         let mut headers: HashMap<String, String> = match serde_json::from_str(&updated_row.message_headers.to_string()) {
             Ok(t) => t,
             Err(_e) => {
-                println!("error occurred while parsing");
-                HashMap::new()
+                log::error!("error occurred while parsing");
+                return Err("error occurred while parsing headers field".to_string());
             }
         };
 
@@ -75,6 +65,7 @@ impl MessageProcessor {
                     Err("error occurred while publishing".to_string())
                 }
             }
+
             None => {
                 log::error!("Error: readied_by not found in db row {:?}", updated_row);
                 Err("error occurred while publishing".to_string())
@@ -89,7 +80,6 @@ impl MessageProcessor {
         let mut retry_count = 0;
         while let Err(outcome_error) = &self.data_store.delete_fired(ids).await {
             log::error!("Error: error occurred in message processor {}", outcome_error);
-            log::debug!("retrying");
             retry_count += 1;
             if retry_count == max_retry_count {
                 log::error!("Error: max retry count {} reached by node {:?} for deleting fired ids ", max_retry_count, ids);
@@ -128,7 +118,9 @@ impl MessageProcessor {
 
                         let results = futures::future::join_all(publish_futures).await;
 
-                        let ids: Vec<String> = results.into_iter().map(Self::gather_ids).collect();
+                        // closure to gather ids from results vector and ignore error from result
+
+                        let ids: Vec<String> = results.into_iter().filter_map(|result| result.ok()).collect();
 
                         if !ids.is_empty() {
                             let _ = self.delete_fired_records_from_db(&ids).await;
@@ -140,7 +132,6 @@ impl MessageProcessor {
                 Err(e) => {
                     if e.contains("could not serialize access due to concurrent update") && retry_count < max_retry_count {
                         //retry goes here
-                        log::debug!("retrying");
                         retry_count += 1;
                         if retry_count == max_retry_count {
                             log::error!("Error: max retry count {} reached by node {:?} for row ", max_retry_count, readied_by_column);

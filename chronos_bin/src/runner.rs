@@ -60,15 +60,13 @@ impl Runner {
                 log::error!("error while writing to healthcheck file {:?}", write_resp);
             }
         }
-        message_receiver_handler.await.unwrap();
-        // futures::future::join(monitor_handler);
-        // let future_tuple = futures::future::try_join3(monitor_handler, message_processor_handler, message_receiver_handler).await;
-        // if future_tuple.is_err() {
-        //     log::error!("Chronos Stopping all threads {:?}", future_tuple);
-        //     let write_resp = write(&healthcheck_file, b"0");
-        //     if write_resp.is_err() {
-        //         log::error!("error while writing to healthcheck file {:?}", write_resp);
-        //     }
-        // }
+        let future_tuple = futures::future::try_join3(monitor_handler, message_processor_handler, message_receiver_handler).await;
+        if future_tuple.is_err() {
+            log::error!("Chronos Stopping all threads {:?}", future_tuple);
+            let write_resp = write(&healthcheck_file, b"0");
+            if write_resp.is_err() {
+                log::error!("error while writing to healthcheck file {:?}", write_resp);
+            }
+        }
     }
 }
