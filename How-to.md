@@ -29,18 +29,18 @@ All the required configurations for Chronos can be passed in environment variabl
 |----|----|
 |KAFKA_HOST|"localhost"
 |KAFKA_PORT|9093
-|  KAFKA_CLIENT_ID|"chronos"
-|  KAFKA_GROUP_ID|"chronos"
-|  KAFKA_IN_TOPIC|"chronos.in"
-|  KAFKA_OUT_TOPIC|"chronos.out"
-|  KAFKA_USERNAME|
-|  KAFKA_PASSWORD|
-|  PG_HOST|localhost
-|  PG_PORT|5432
-|  PG_USER|admin
-|  PG_PASSWORD|admin
-|  PG_DATABASE|chronos_db
-|  PG_POOL_SIZE|50
+|KAFKA_CLIENT_ID|"chronos"
+|KAFKA_GROUP_ID|"chronos"
+|KAFKA_IN_TOPIC|"chronos.in"
+|KAFKA_OUT_TOPIC|"chronos.out"
+|KAFKA_USERNAME|
+|KAFKA_PASSWORD|
+|PG_HOST|localhost
+|PG_PORT|5432
+|PG_USER|admin
+|PG_PASSWORD|admin
+|PG_DATABASE|chronos_db
+|PG_POOL_SIZE|50
 
 ### Optional Vars
 These values are set to fine tune performance Chrono in need, refer to [Chronos](./README.md)
@@ -50,6 +50,7 @@ These values are set to fine tune performance Chrono in need, refer to [Chronos]
 | PROCESSOR_DB_POLL|5 milli sec
 | TIMING_ADVANCE|0 sec
 | FAIL_DETECT_INTERVAL|10 sec
+| HEALTHCHECK_FILE|healthcheck/chronos_healthcheck
 
 
 ## Observability

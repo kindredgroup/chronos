@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use crate::kafka::errors::KafkaAdapterError;
 use crate::utils::util::into_headers;
+use crate::{kafka::errors::KafkaAdapterError, utils::util::CHRONOS_ID};
 use rdkafka::producer::{FutureProducer, FutureRecord};
 
 use super::config::KafkaConfig;
@@ -18,7 +18,7 @@ pub struct KafkaProducer {
 
 impl KafkaProducer {
     pub fn new(config: &KafkaConfig) -> Self {
-        // Kafka Producer
+        // rdlibkafka goes infinitely trying to connect to kafka broker
         let producer = config.build_producer_config().create().expect("Failed to create producer");
         let topic = config.out_topic.to_owned();
 
@@ -44,6 +44,6 @@ impl KafkaProducer {
             )
             .await
             .map_err(|(kafka_error, _record)| KafkaAdapterError::PublishMessage(kafka_error, "message publishing failed".to_string()))?;
-        Ok(unwrap_header["chronosId"].to_string())
+        Ok(unwrap_header[CHRONOS_ID].to_string())
     }
 }
