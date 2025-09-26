@@ -50,7 +50,7 @@ pg.create:
 ## pg.migrate: 🥁 Run migrations on database
 pg.migrate:
 	$(call pp,running migrations on database...)
-	cargo run --package pg_mig --bin chronos-pg-migrations   
+	cargo run --package pg_mig --bin chronos-pg-migrations
 
 # TEST / DEPLOY ###################################################################################
 
@@ -83,7 +83,7 @@ run:
 ## run: 🧪 Runs rust app in release mode
 run.release:
 	$(call pp,run app...)
-	cargo run --package chronos_bin --r --bin chronos 
+	cargo run --package chronos_bin -r --bin chronos
 
 
 ## lint: 🧹 Checks for lint failures on rust

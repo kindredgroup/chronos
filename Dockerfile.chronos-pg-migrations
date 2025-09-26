@@ -1,4 +1,4 @@
-FROM rust:1.66.0-buster AS BUILD
+FROM rust:1.75.0-bookworm AS BUILD
 # Install software
 RUN update-ca-certificates && apt-get update && apt-get install -y libsasl2-dev
 # Create appuser
@@ -19,9 +19,9 @@ COPY ./ .
 RUN cargo build -p pg_mig --release
 
 #
-# Run image based on buster-slim to reduce image size while still using glibc
+# Run image based on bookworm-slim to reduce image size while still using glibc
 #
-FROM debian:buster-slim AS RUN
+FROM debian:bookworm-slim AS RUN
 # SASL supports
 RUN apt-get update && apt-get install -y libsasl2-dev
 WORKDIR /opt/build
