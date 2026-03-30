@@ -18,11 +18,25 @@
                 ],
                 "filter": {
                     "name": "chronos",
-                    "kind": "lib"
+                    "kind": "bin"
                 }
             },
             "args": [],
             "cwd": "${workspaceFolder}"
+        },
+        {
+        "type": "lldb",
+        "request": "launch",
+        "name": "chronos_bin (chronos)",
+        "cargo": {
+            "args": ["build", "--package", "chronos_bin", "--bin", "chronos"]
+            // if your CodeLLDB supports it, also set: "toolchain": "1.75"
+        },
+        "cwd": "${workspaceFolder}",
+        "env": {
+            "RUSTUP_TOOLCHAIN": "1.75"
+        },
+        "args": []
         },
         {
             "type": "lldb",
