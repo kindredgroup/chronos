@@ -247,7 +247,7 @@ impl Pg {
         }
     }
 
-    #[tracing::instrument(skip_all)]
+    // #[tracing::instrument(skip_all)]
     pub(crate) async fn ready_to_fire_db(&self, param: &GetReady) -> Result<Vec<Row>, String> {
         //TODO handle get client error gracefully
         let method_name = "ready_to_fire_db";
@@ -295,7 +295,9 @@ impl Pg {
             Err(e) => {
                 if let Some(err_code) = e.code() {
                     if err_code == &SqlState::T_R_SERIALIZATION_FAILURE {
-                        return Err(format!("{}: Unable to execute txn due to : {}", method_name, e));
+                        log::warn!("{}: serialization failure params: {:?}", method_name, param);
+                        // not throw error, just return empty vector
+                        return Ok(Vec::new());
                     }
                 }
                 Err(format!("{}: Unknow exception {:?}", method_name, e))

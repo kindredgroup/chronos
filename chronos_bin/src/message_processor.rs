@@ -94,7 +94,24 @@ impl MessageProcessor {
         }
     }
 
-    #[tracing::instrument(skip_all)]
+    async fn retry_loop(&self, param: &GetReady) -> Result<Vec<Row>, String> {
+        let max_retry_count = 3;
+        let mut retry_count = 0;
+        loop {
+            match self.data_store.ready_to_fire_db(param).await {
+                Ok(rows) => return Ok(rows),
+                Err(e) => {
+                    retry_count += 1;
+                    if retry_count >= max_retry_count {
+                        return Err(e);
+                    }
+                    tokio::time::sleep(std::time::Duration::from_millis(20 * retry_count as u64)).await;
+                }
+            }
+        }
+    }
+
+    // #[tracing::instrument(skip_all)]
     async fn processor_message_ready(&self, node_id: Uuid) {
         loop {
             let method_name = "processor_message_ready";
@@ -109,7 +126,7 @@ impl MessageProcessor {
                 // order: "asc",
             };
 
-            let resp: Result<Vec<Row>, String> = self.data_store.ready_to_fire_db(&param).await;
+            let resp: Result<Vec<Row>, String> = self.retry_loop(&param).await;
             match resp {
                 Ok(ready_to_publish_rows) => {
                     if ready_to_publish_rows.is_empty() {
