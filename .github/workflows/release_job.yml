@@ -1,0 +1,31 @@
+name: release_job
+
+on:
+    workflow_call
+    
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+        - name: Checkout the repo
+          uses: actions/checkout@v3
+        - name: Login to GitHub Container Registry
+          uses: docker/login-action@v1
+          with:
+            registry: ghcr.io
+            username: ${{ github.actor }}
+            password: ${{ secrets.GHCR_CHRONOS }}
+        
+        - name: Build and publish chronos for chronos image with ver
+          run: |
+            docker build -f Dockerfile.chronos . --tag ghcr.io/$GITHUB_REPOSITORY:$GITHUB_REF_NAME --tag ghcr.io/$GITHUB_REPOSITORY:latest
+            docker push ghcr.io/$GITHUB_REPOSITORY:$GITHUB_REF_NAME 
+        
+        # - name: publish chronos latest for chronos image replace latest
+        #   run: |
+        #     docker push ghcr.io/$GITHUB_REPOSITORY:latest
+        
+        # - name: Build and publish the chronos-pg-migration Docker image
+        #   run: |
+        #     docker build -f Dockerfile.chronos-pg-migrations . --tag ghcr.io/$GITHUB_REPOSITORY/db-migration:$GITHUB_REF_NAME
+        #     docker push ghcr.io/$GITHUB_REPOSITORY/db-migration:$GITHUB_REF_NAME
