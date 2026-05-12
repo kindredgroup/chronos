@@ -297,7 +297,6 @@ impl Pg {
                 if let Some(err_code) = e.code() {
                     if err_code == &SqlState::T_R_SERIALIZATION_FAILURE {
                         event!(tracing::Level::WARN, "{}: serialization failure params: {:?}", method_name, param);
-                        log::warn!("{}: serialization failure params: {:?}", method_name, param);
                         // not throw error, just return empty vector
                         return Ok(Vec::new());
                     }
