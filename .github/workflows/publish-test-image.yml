@@ -37,12 +37,12 @@ jobs:
 
       - name: Build and push chronos test image
         run: |
-          docker build -f Dockerfile.chronos . --tag ghcr.io/${{ github.repository }}:${{ steps.vars.outputs.tag }} \
+          docker build -f Dockerfile.chronos . --tag ghcr.io/${{ github.repository }}:${{ steps.vars.outputs.tag }}
           docker push ghcr.io/${{ github.repository }}:${{ steps.vars.outputs.tag }}
 
       - name: Build and push migration test image
         run: |
-          docker build -f Dockerfile.chronos-pg-migrations . --tag ghcr.io/${{ github.repository }}/db-migration:${{ steps.vars.outputs.tag }} \
+          docker build -f Dockerfile.chronos-pg-migrations . --tag ghcr.io/${{ github.repository }}/db-migration:${{ steps.vars.outputs.tag }}
           docker push ghcr.io/${{ github.repository }}/db-migration:${{ steps.vars.outputs.tag }}
 
         # In case sha tag is needed, use the following:
