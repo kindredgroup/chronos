@@ -1,0 +1,54 @@
+name: publish test image
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_tag:
+        description: "Optional test tag (e.g. test-v0.11.1-rc1)"
+        required: false
+        type: string
+  push:
+    tags:
+      - "test-v*"
+
+jobs:
+  build-and-publish-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.AMN_PAT }}
+
+      - name: Compute tags
+        id: vars
+        run: |
+          INPUT_TAG="${{ github.event.inputs.test_tag }}"
+          REF_TAG="${GITHUB_REF_NAME}"
+          TAG="${INPUT_TAG:-$REF_TAG}"
+          if [ -z "$TAG" ]; then TAG="test-${GITHUB_SHA::7}"; fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+        #   echo "sha_tag=test-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push chronos test image
+        run: |
+          docker build -f Dockerfile.chronos . \
+            --tag ghcr.io/${{ github.repository }}:${{ steps.vars.outputs.tag }} \
+          docker push ghcr.io/${{ github.repository }}:${{ steps.vars.outputs.tag }}
+
+      - name: Build and push migration test image
+        run: |
+          docker build -f Dockerfile.chronos-pg-migrations . \
+            --tag ghcr.io/${{ github.repository }}/db-migration:${{ steps.vars.outputs.tag }} \
+            docker push ghcr.io/${{ github.repository }}/db-migration:${{ steps.vars.outputs.tag }}
+
+        # In case sha tag is needed, use the following:
+        # docker build -f Dockerfile.chronos . \
+        # --tag ghcr.io/${{ github.repository }}:${{ steps.vars.outputs.tag }} \
+        # --tag ghcr.io/${{ github.repository }}:${{ steps.vars.outputs.sha_tag }}
+        #   docker push ghcr.io/${{ github.repository }}:${{ steps.vars.outputs.sha_tag }}

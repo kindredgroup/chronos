@@ -1,4 +1,4 @@
-name: release app binary on tag
+name: build app binary on tag
 
 # push to branch
 on:
