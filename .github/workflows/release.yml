@@ -4,8 +4,6 @@ name: release app binary on tag
 # and creating a GitHub release
 # and publish the release to GitHub
 on:
-    release:
-        types: [created]
     push:
         tags:
             # only build on tags that start with 'v'
