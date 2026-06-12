@@ -121,6 +121,7 @@ services:
         condition: service_started
     ports:
       - "8181:8181"
+      - "9464:9464"
     environment:
       ENVIRONMENT: "dev"
       SERVICE_NAME: "chronos-delay-scheduler"
