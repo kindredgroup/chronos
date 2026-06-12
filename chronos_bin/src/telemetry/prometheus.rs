@@ -69,7 +69,7 @@ impl PrometheusConfig {
 }
 
 pub(super) fn create_registry() -> Registry {
-    let mut registry = Registry::with_prefix("chronos");
+    let mut registry = Registry::default();
     register_custom_metrics(&mut registry);
     return registry;
 }
