@@ -110,7 +110,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.chronos
-    # image: chronos:local
     container_name: chronos-app
     depends_on:
       postgres:
@@ -144,6 +143,7 @@ services:
       OTEL_SERVICE_NAME: "chronos"
       OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
       OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "http://otel-collector:4317"
+      OTEL_EXPORTER_PROMETHEUS_HOST: "chronos-app"
     networks: [chronos]
 
 networks:

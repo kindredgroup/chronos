@@ -36,12 +36,17 @@ impl PrometheusConfig {
         // but this attempts to avoid the panic by hitting defaults.
         // If its prefer I can write my own get_env_var_value for this
         let host = if env::var_os(PROMETHEUS_HOST_ENV).is_some() {
-            get_env_var_value(PROMETHEUS_HOST_ENV).unwrap()
+            let value = get_env_var_value(PROMETHEUS_HOST_ENV).unwrap();
+            if value.is_empty() {
+                log::warn!("{PROMETHEUS_HOST_ENV} is empty using {DEFAULT_PROMETHEUS_HOST}");
+                DEFAULT_PROMETHEUS_HOST.to_string()
+            } else {
+                value
+            }
         } else {
+            log::warn!("{PROMETHEUS_HOST_ENV} not found using {DEFAULT_PROMETHEUS_HOST}");
             DEFAULT_PROMETHEUS_HOST.to_string()
         };
-        let host = if host.is_empty() { DEFAULT_PROMETHEUS_HOST.to_string() } else { host };
-
         let port = if env::var_os(PROMETHEUS_PORT_ENV).is_some() {
             let value = get_env_var_value(PROMETHEUS_PORT_ENV).unwrap();
             match value.parse::<u16>() {
@@ -52,6 +57,7 @@ impl PrometheusConfig {
                 }
             }
         } else {
+            log::warn!("{PROMETHEUS_PORT_ENV} not found using {DEFAULT_PROMETHEUS_PORT}");
             DEFAULT_PROMETHEUS_PORT
         };
         Self { host, port }
@@ -63,9 +69,9 @@ impl PrometheusConfig {
 }
 
 pub(super) fn create_registry() -> Registry {
-    let mut registry = Registry::default();
+    let mut registry = Registry::with_prefix("chronos");
     register_custom_metrics(&mut registry);
-    registry
+    return registry;
 }
 
 pub(super) fn app(registry: Arc<Registry>) -> Router {
