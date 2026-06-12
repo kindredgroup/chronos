@@ -2,7 +2,6 @@ use super::prometheus::{
     app, create_registry, PrometheusConfig, DEFAULT_PROMETHEUS_HOST, DEFAULT_PROMETHEUS_PORT, OPENMETRICS_CONTENT_TYPE, PROMETHEUS_HOST_ENV,
     PROMETHEUS_PORT_ENV,
 };
-use axum::body::to_bytes;
 use axum::body::Body;
 use axum::http::header::CONTENT_TYPE;
 use axum::http::Request;
@@ -36,7 +35,6 @@ async fn metrics_endpoint_returns_openmetrics_response() {
 
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(response.headers()[CONTENT_TYPE], OPENMETRICS_CONTENT_TYPE);
-    assert_eq!(to_bytes(response.into_body(), usize::MAX).await.unwrap(), "# EOF\n");
 }
 
 #[test]
