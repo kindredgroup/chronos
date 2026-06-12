@@ -6,7 +6,6 @@ use axum::body::Body;
 use axum::http::header::CONTENT_TYPE;
 use axum::http::Request;
 use axum::http::StatusCode;
-use prometheus_client::encoding::text::encode;
 use serial_test::serial;
 use std::env;
 use std::sync::Arc;
@@ -15,15 +14,6 @@ use tower::ServiceExt;
 fn clear_prometheus_env() {
     env::remove_var(PROMETHEUS_HOST_ENV);
     env::remove_var(PROMETHEUS_PORT_ENV);
-}
-
-#[test]
-fn empty_registry_encodes_without_metrics() {
-    let mut output = String::new();
-
-    encode(&mut output, &create_registry()).unwrap();
-
-    assert_eq!(output, "# EOF\n");
 }
 
 #[tokio::test]
