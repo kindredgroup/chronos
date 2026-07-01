@@ -1,8 +1,4 @@
-mod custom_metrics;
+pub mod metrics;
 mod otlp_collector;
-pub mod prometheus;
+mod prometheus;
 pub mod register_telemetry;
-
-#[cfg(test)]
-#[path = "prometheus/tests.rs"]
-mod prometheus_tests;

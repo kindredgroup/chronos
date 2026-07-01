@@ -1,113 +1,111 @@
-use std::env;
-use std::io;
-use std::sync::Arc;
+use http_body_util::Full;
+use hyper::{
+    body::{Bytes, Incoming},
+    header::CONTENT_TYPE,
+    service::service_fn,
+    Method, Request, Response,
+};
+use hyper_util::{
+    rt::{TokioExecutor, TokioIo},
+    server::conn::auto::Builder,
+};
+use opentelemetry::global;
+use opentelemetry_prometheus::exporter;
+use opentelemetry_sdk::metrics::SdkMeterProvider;
+use prometheus::{Encoder, Registry, TextEncoder};
+use tokio::net::TcpListener;
 
-use axum::body::Body;
-use axum::extract::State;
-use axum::http::header::CONTENT_TYPE;
-use axum::http::{StatusCode, Uri};
-use axum::response::{IntoResponse, Response};
-use axum::routing::get;
-use axum::Router;
-use prometheus_client::encoding::text::encode;
-use prometheus_client::registry::Registry;
-use tokio::task::JoinHandle;
+// https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/#prometheus-exporter
+const OTEL_EXPORTER_PROMETHEUS_PORT: &str = "OTEL_EXPORTER_PROMETHEUS_PORT";
+const OTEL_EXPORTER_PROMETHEUS_DEFAULT_PORT: u16 = 9464;
+const OTEL_EXPORTER_PROMETHEUS_HOST: &str = "OTEL_EXPORTER_PROMETHEUS_HOST";
+const OTEL_EXPORTER_PROMETHEUS_DEFAULT_HOST: &str = "localhost";
 
-use super::custom_metrics::register_custom_metrics;
-use crate::utils::env::get_env_var_value;
-
-pub(super) const DEFAULT_PROMETHEUS_HOST: &str = "localhost";
-pub(super) const DEFAULT_PROMETHEUS_PORT: u16 = 9464;
-pub(super) const PROMETHEUS_HOST_ENV: &str = "OTEL_EXPORTER_PROMETHEUS_HOST";
-pub(super) const PROMETHEUS_PORT_ENV: &str = "OTEL_EXPORTER_PROMETHEUS_PORT";
-pub(super) const OPENMETRICS_CONTENT_TYPE: &str = "application/openmetrics-text; version=1.0.0; charset=utf-8";
-
-#[derive(Debug, Eq, PartialEq)]
-pub(super) struct PrometheusConfig {
-    pub(super) host: String,
-    pub(super) port: u16,
+pub struct PrometheusExporter {
+    registry: Registry,
 }
 
-impl PrometheusConfig {
-    pub(super) fn from_env() -> Self {
-        // get_env_var_value panics if the var is missing
-        // We pre-check for the var to avoid a panic
-        // I am using get_env_var_value because its a convention in the codebase
-        // but this attempts to avoid the panic by hitting defaults.
-        // If its prefer I can write my own get_env_var_value for this
-        let host = if env::var_os(PROMETHEUS_HOST_ENV).is_some() {
-            let value = get_env_var_value(PROMETHEUS_HOST_ENV).unwrap();
-            if value.is_empty() {
-                log::warn!("{PROMETHEUS_HOST_ENV} is empty using {DEFAULT_PROMETHEUS_HOST}");
-                DEFAULT_PROMETHEUS_HOST.to_string()
-            } else {
-                value
-            }
-        } else {
-            log::warn!("{PROMETHEUS_HOST_ENV} not found using {DEFAULT_PROMETHEUS_HOST}");
-            DEFAULT_PROMETHEUS_HOST.to_string()
-        };
-        let port = if env::var_os(PROMETHEUS_PORT_ENV).is_some() {
-            let value = get_env_var_value(PROMETHEUS_PORT_ENV).unwrap();
-            match value.parse::<u16>() {
-                Ok(port) => port,
-                Err(error) => {
-                    log::warn!("invalid {PROMETHEUS_PORT_ENV} value {value:?}: {error}; using {DEFAULT_PROMETHEUS_PORT}");
-                    DEFAULT_PROMETHEUS_PORT
+impl PrometheusExporter {
+    pub fn new() -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+        let registry = Registry::new();
+        let provider = SdkMeterProvider::builder()
+            .with_reader(exporter().with_registry(registry.clone()).build()?)
+            .build();
+        global::set_meter_provider(provider.clone());
+        Ok(Self { registry })
+    }
+
+    pub async fn start_web_server(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        let hostname = std::env::var(OTEL_EXPORTER_PROMETHEUS_HOST).unwrap_or(OTEL_EXPORTER_PROMETHEUS_DEFAULT_HOST.to_string());
+        let port = std::env::var(OTEL_EXPORTER_PROMETHEUS_PORT)
+            .ok()
+            .and_then(|port| {
+                port.parse::<u16>()
+                    .map_err(|e| {
+                        log::warn!(
+                            "failed to parse {} with {}, using default port {}",
+                            OTEL_EXPORTER_PROMETHEUS_PORT,
+                            e,
+                            OTEL_EXPORTER_PROMETHEUS_DEFAULT_PORT.to_string()
+                        )
+                    })
+                    .ok()
+            })
+            .unwrap_or(OTEL_EXPORTER_PROMETHEUS_DEFAULT_PORT);
+        log::debug!("starting prometheus server on {}:{}", hostname, port);
+        let listener = TcpListener::bind((hostname, port)).await;
+        match listener {
+            Ok(l) => {
+                while let Ok((stream, _addr)) = l.accept().await {
+                    if let Err(err) = Builder::new(TokioExecutor::new())
+                        .serve_connection(TokioIo::new(stream), service_fn(|req| serve_req(req, self.registry.clone())))
+                        .await
+                    {
+                        log::error!("error serving prometheus metics {err}")
+                    }
                 }
             }
-        } else {
-            log::warn!("{PROMETHEUS_PORT_ENV} not found using {DEFAULT_PROMETHEUS_PORT}");
-            DEFAULT_PROMETHEUS_PORT
-        };
-        Self { host, port }
-    }
-
-    fn address(&self) -> String {
-        format!("{}:{}", self.host, self.port)
-    }
-}
-
-pub(super) fn create_registry() -> Registry {
-    let mut registry = Registry::default();
-    register_custom_metrics(&mut registry);
-    return registry;
-}
-
-pub(super) fn app(registry: Arc<Registry>) -> Router {
-    Router::new().route("/metrics", get(metrics_handler)).fallback(not_found).with_state(registry)
-}
-
-async fn metrics_handler(State(registry): State<Arc<Registry>>) -> Response {
-    let mut body = String::new();
-    match encode(&mut body, &registry) {
-        Ok(()) => Response::builder()
-            .status(StatusCode::OK)
-            .header(CONTENT_TYPE, OPENMETRICS_CONTENT_TYPE)
-            .body(Body::from(body))
-            .expect("valid metrics response"),
-        Err(error) => {
-            log::error!("failed to encode Prometheus metrics: {error}");
-            StatusCode::INTERNAL_SERVER_ERROR.into_response()
+            Err(e) => {
+                log::error!("error binding to prometheus port with {}", e);
+                return Err("failed to bind prometheus address".into());
+            }
         }
+        log::error!("stopping prometheus server");
+        Ok(())
     }
 }
 
-async fn not_found(_uri: Uri) -> StatusCode {
-    StatusCode::NOT_FOUND
-}
-
-pub async fn start_prometheus_server() -> io::Result<JoinHandle<()>> {
-    let config = PrometheusConfig::from_env();
-    let address = config.address();
-    let listener = tokio::net::TcpListener::bind(&address).await?;
-    let registry = Arc::new(create_registry());
-
-    log::info!("Prometheus metrics server listening on {address}");
-
-    Ok(tokio::spawn(async move {
-        if let Err(error) = axum::serve(listener, app(registry)).await {
-            log::error!("Prometheus metrics server stopped: {error}");
+async fn serve_req(r: Request<Incoming>, register: Registry) -> Result<Response<Full<Bytes>>, hyper::Error> {
+    let resp = match (r.method(), r.uri().path()) {
+        (&Method::GET, "/metrics") => {
+            let mut buffer = vec![];
+            let encoder = TextEncoder::new();
+            let reg = register.gather();
+            let encode = encoder.encode(&reg, &mut buffer);
+            match encode {
+                Ok(_) => Response::builder()
+                    .status(200)
+                    .header(CONTENT_TYPE, encoder.format_type())
+                    .body(Full::new(Bytes::from(buffer)))
+                    .unwrap(),
+                Err(err) => {
+                    log::error!("error encoding prometheus metrics {}", err);
+                    Response::builder()
+                        .status(500)
+                        .body(
+                            Full::new("Internal Server Error".into()), // Panic if the HTTP lib tries
+                                                                       // to build an invalid HTTP response
+                        )
+                        .unwrap()
+                }
+            }
         }
-    }))
+        _ => Response::builder()
+            .status(404)
+            .body(Full::new("Not found".into()))
+            // Panic if the HTTP lib tries
+            // to build an invalid HTTP response
+            .unwrap(),
+    };
+    Ok(resp)
 }
