@@ -10,6 +10,9 @@ define pp
 endef
 
 
+-include .env
+export
+
 help: Makefile
 	@echo " Choose a command to run:"
 	@sed -n 's/^##//p' $< | column -t -s ':' | sed -e 's/^/ /'

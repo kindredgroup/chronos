@@ -4,16 +4,15 @@ use chronos_bin::kafka::producer::KafkaProducer;
 use chronos_bin::postgres::config::PgConfig;
 use chronos_bin::postgres::pg::Pg;
 use chronos_bin::runner::Runner;
-use chronos_bin::telemetry::register_telemetry::{MetricsExporterType, TelemetryCollector, TracesExporterType};
+use chronos_bin::telemetry::register_telemetry::TelemetryCollector;
 use log::{debug, info};
 use std::sync::Arc;
 use std::time::Duration;
 
 #[tokio::main]
 async fn main() {
-    env_logger::init();
     dotenvy::dotenv().ok();
-    let tc = TelemetryCollector::new(TracesExporterType::Otlp, MetricsExporterType::Prometheus);
+    let tc = TelemetryCollector::new();
     // Exit if telemetry fails to start
     if let Err(e) = tc.init() {
         log::error!("telemetry failed to init with {}", e);
