@@ -1,5 +1,6 @@
 use super::metrics;
 use super::traces;
+use std::any::type_name_of_val;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 pub enum TracesExporterType {
@@ -80,17 +81,23 @@ impl TelemetryCollector {
             TracesExporterType::Otlp => traces::otlp_exporter::OtlpExporter::new()?.tracer(self.service_name.as_str()),
             TracesExporterType::NoOp => traces::noop_exporter::NoOpExporter::new()?.tracer(self.service_name.as_str()),
         };
+        log::error!("NO LOGGER SETUP YET, won't show");
         let otel_layer = tracing_opentelemetry::layer().with_tracer(tracer);
         let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
-        let init_result = tracing_subscriber::registry()
+        // Panic as there is no logger
+        // Or don't use try init/tracing_subscribers logger
+        let _ = tracing_subscriber::registry()
             .with(filter)
             .with(tracing_subscriber::fmt::layer().with_writer(std::io::stderr))
             .with(otel_layer)
-            .try_init();
-        if let Err(e) = init_result {
-            eprintln!("failed to initialize tracing subscriber: {e}");
-            return Err(Box::new(e));
-        };
+            .try_init()
+            .unwrap();
+        // No longer needed:
+        // if let Err(e) = init_result {
+        //     eprintln!("failed to initialize tracing subscriber: {e}");
+        //     return Err(Box::new(e));
+        // };
+        log::error!("WOOWEE - after the tracing no-op");
         Ok(())
     }
 
