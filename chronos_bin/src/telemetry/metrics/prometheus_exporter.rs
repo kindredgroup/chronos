@@ -21,58 +21,67 @@ const OTEL_EXPORTER_PROMETHEUS_DEFAULT_PORT: u16 = 9464;
 const OTEL_EXPORTER_PROMETHEUS_HOST: &str = "OTEL_EXPORTER_PROMETHEUS_HOST";
 const OTEL_EXPORTER_PROMETHEUS_DEFAULT_HOST: &str = "localhost";
 
-pub struct PrometheusExporter {
-    registry: Registry,
-}
+pub struct PrometheusExporter {}
 
 impl PrometheusExporter {
-    pub fn new() -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+    pub fn new() -> Self {
+        Self {}
+    }
+
+    pub fn init(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let registry = Registry::new();
         let provider = SdkMeterProvider::builder()
             .with_reader(exporter().with_registry(registry.clone()).build()?)
             .build();
         global::set_meter_provider(provider.clone());
-        Ok(Self { registry })
-    }
-
-    pub async fn start_web_server(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let hostname = std::env::var(OTEL_EXPORTER_PROMETHEUS_HOST).unwrap_or(OTEL_EXPORTER_PROMETHEUS_DEFAULT_HOST.to_string());
-        let port = std::env::var(OTEL_EXPORTER_PROMETHEUS_PORT)
-            .ok()
-            .and_then(|port| {
-                port.parse::<u16>()
-                    .map_err(|e| {
-                        log::warn!(
-                            "failed to parse {} with {}, using default port {}",
-                            OTEL_EXPORTER_PROMETHEUS_PORT,
-                            e,
-                            OTEL_EXPORTER_PROMETHEUS_DEFAULT_PORT.to_string()
-                        )
-                    })
-                    .ok()
-            })
-            .unwrap_or(OTEL_EXPORTER_PROMETHEUS_DEFAULT_PORT);
-        log::debug!("starting prometheus server on {}:{}", hostname, port);
-        let listener = TcpListener::bind((hostname, port)).await;
-        match listener {
-            Ok(l) => {
-                while let Ok((stream, _addr)) = l.accept().await {
-                    if let Err(err) = Builder::new(TokioExecutor::new())
-                        .serve_connection(TokioIo::new(stream), service_fn(|req| serve_req(req, self.registry.clone())))
-                        .await
-                    {
-                        log::error!("error serving prometheus metics {err}")
-                    }
-                }
+        let r = registry.clone();
+        // We should really watch this guy and make sure it doesn't die
+        tokio::spawn(async move {
+            if let Err(err) = start_web_server(r).await {
+                log::error!("prometheus server has stopped with error {}", err)
             }
-            Err(e) => {
-                log::error!("error binding to prometheus port with {}", e);
-                return Err("failed to bind prometheus address".into());
-            }
-        }
-        log::error!("stopping prometheus server");
+        });
         Ok(())
     }
+}
+
+async fn start_web_server(register: Registry) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let hostname = std::env::var(OTEL_EXPORTER_PROMETHEUS_HOST).unwrap_or(OTEL_EXPORTER_PROMETHEUS_DEFAULT_HOST.to_string());
+    let port = std::env::var(OTEL_EXPORTER_PROMETHEUS_PORT)
+        .ok()
+        .and_then(|port| {
+            port.parse::<u16>()
+                .map_err(|e| {
+                    log::warn!(
+                        "failed to parse {} with {}, using default port {}",
+                        OTEL_EXPORTER_PROMETHEUS_PORT,
+                        e,
+                        OTEL_EXPORTER_PROMETHEUS_DEFAULT_PORT.to_string()
+                    )
+                })
+                .ok()
+        })
+        .unwrap_or(OTEL_EXPORTER_PROMETHEUS_DEFAULT_PORT);
+    log::debug!("starting prometheus server on {}:{}", hostname, port);
+    let listener = TcpListener::bind((hostname, port)).await;
+    match listener {
+        Ok(l) => {
+            while let Ok((stream, _addr)) = l.accept().await {
+                if let Err(err) = Builder::new(TokioExecutor::new())
+                    .serve_connection(TokioIo::new(stream), service_fn(|req| serve_req(req, register.clone())))
+                    .await
+                {
+                    log::error!("error serving prometheus metics {err}")
+                }
+            }
+        }
+        Err(e) => {
+            log::error!("error binding to prometheus port with {}", e);
+            return Err("failed to bind prometheus address".into());
+        }
+    }
+    log::error!("stopping prometheus server");
+    Ok(())
 }
 
 async fn serve_req(r: Request<Incoming>, register: Registry) -> Result<Response<Full<Bytes>>, hyper::Error> {

@@ -1,6 +1,6 @@
 use super::metrics;
 use super::traces;
-use std::any::type_name_of_val;
+use opentelemetry::global;
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 pub enum TracesExporterType {
@@ -60,63 +60,42 @@ impl TelemetryCollector {
     }
 
     pub fn init(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let mut f = false;
-        if let Err(e) = self.register_metrics() {
-            log::error!("failed to start metrics exporter with \"{}\"", e);
-            f = true;
-        }
-        if let Err(e) = self.register_traces() {
-            log::error!("failed to start tracer with \"{}\"", e);
-            f = true;
-        }
-        // Start both, crash if either fail
-        if f {
-            return Err("failed to start telemetry".into());
-        }
+        // The tracer MUST be called first
+        // Or we will always pass a no op tracer to the logger,
+        // which might not be what you want if using OTLP etc
+        // Will panic on fail
+        self.register_tracing();
+        // Will panic on fail
+        self.register_logger();
+        self.register_metrics()?;
         Ok(())
     }
 
-    fn register_traces(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-        let tracer = match self.traces_collector_type {
-            TracesExporterType::Otlp => traces::otlp_exporter::OtlpExporter::new()?.tracer(self.service_name.as_str()),
-            TracesExporterType::NoOp => traces::noop_exporter::NoOpExporter::new()?.tracer(self.service_name.as_str()),
+    fn register_tracing(&self) {
+        match self.traces_collector_type {
+            TracesExporterType::Otlp => traces::otlp_exporter::OtlpExporter::new(),
+            TracesExporterType::NoOp => traces::noop_exporter::NoOpExporter::new(),
         };
-        log::error!("NO LOGGER SETUP YET, won't show");
-        let otel_layer = tracing_opentelemetry::layer().with_tracer(tracer);
+    }
+
+    fn register_logger(&self) {
+        let otel_layer = tracing_opentelemetry::layer().with_tracer(global::tracer(self.service_name.clone()));
         let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
-        // Panic as there is no logger
-        // Or don't use try init/tracing_subscribers logger
-        let _ = tracing_subscriber::registry()
+        // This will fail if another logger has already been initialized
+        tracing_subscriber::registry()
             .with(filter)
+            // forced stderr logs? How very cloud native of u
             .with(tracing_subscriber::fmt::layer().with_writer(std::io::stderr))
             .with(otel_layer)
             .try_init()
-            .unwrap();
-        // No longer needed:
-        // if let Err(e) = init_result {
-        //     eprintln!("failed to initialize tracing subscriber: {e}");
-        //     return Err(Box::new(e));
-        // };
-        log::error!("WOOWEE - after the tracing no-op");
-        Ok(())
+            .expect("tracing subscriber to global default logging subscriber");
     }
 
     fn register_metrics(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         match self.metrics_collector_type {
-            MetricsExporterType::Prometheus => {
-                let e = metrics::prometheus_exporter::PrometheusExporter::new()?;
-                // ATM this can fail in the background,
-                // And there is nothing to restart it
-                // or kill the app
-                tokio::spawn(async move {
-                    if let Err(err) = e.start_web_server().await {
-                        log::error!("prometheus server has stopped with error {}", err)
-                    }
-                });
-            }
-            MetricsExporterType::NoOp => {
-                // Do nothing, global meter will be no op
-            }
+            MetricsExporterType::Prometheus => metrics::prometheus_exporter::PrometheusExporter::new().init()?,
+            // Do nothing, global meter will be no op
+            MetricsExporterType::NoOp => {}
         };
         Ok(())
     }

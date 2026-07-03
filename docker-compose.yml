@@ -140,10 +140,11 @@ services:
       PG_DATABASE: "chronos_db"
       PG_POOL_SIZE: "50"
       RUST_LOG: "info"
-      OTEL_SERVICE_NAME: "chronos"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector:4317"
       OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
-      OTEL_EXPORTER_OTLP_TRACES_ENDPOINT: "http://otel-collector:4317"
       OTEL_EXPORTER_PROMETHEUS_HOST: "chronos-app"
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_METRICS_EXPORTER: prometheus
     networks: [chronos]
 
 networks:
