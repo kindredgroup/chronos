@@ -1,13 +1,11 @@
 use http_body_util::Full;
 use hyper::{body::Bytes, header::CONTENT_TYPE, service::service_fn, Method, Request, Response};
-use hyper_util::{
-    rt::{TokioExecutor, TokioIo},
-    server::conn::auto::Builder,
-};
+use hyper_util::rt::{TokioExecutor, TokioIo};
+use hyper_util::server::conn::auto::Builder;
 use opentelemetry::global;
 use opentelemetry_prometheus::exporter;
 use opentelemetry_sdk::metrics::SdkMeterProvider;
-use prometheus::{Encoder, Registry, TextEncoder, TEXT_FORMAT};
+use prometheus::{Encoder, Registry, TextEncoder};
 use tokio::net::TcpListener;
 
 // https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/#prometheus-exporter
@@ -117,6 +115,8 @@ async fn serve_req<B>(r: Request<B>, register: Registry) -> Result<Response<Full
 #[cfg(test)]
 mod test {
     use super::*;
+    use prometheus::TEXT_FORMAT;
+
     #[tokio::test]
     async fn test_serve_paths() {
         assert_eq!(

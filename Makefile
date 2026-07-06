@@ -116,7 +116,7 @@ docker.down:
 	$(call pp,stopping containers...)
 	docker compose down
 
-## docker.down: 🛠️ bring down the docker containers
+## docker.build: 🛠️ build the docker containers using docker compose
 docker.build:
 	$(call pp,building containers...)
 	docker compose build

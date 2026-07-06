@@ -145,6 +145,7 @@ services:
       OTEL_EXPORTER_PROMETHEUS_HOST: "chronos-app"
       OTEL_TRACES_EXPORTER: otlp
       OTEL_METRICS_EXPORTER: prometheus
+      OTEL_SERVICE_NAME: "chronos"
     networks: [chronos]
 
 networks:
