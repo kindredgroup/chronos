@@ -78,7 +78,6 @@ impl TelemetryCollector {
         // This will fail if another logger has already been initialized
         tracing_subscriber::registry()
             .with(filter)
-            // forced stderr logs? How very cloud native of u
             .with(tracing_subscriber::fmt::layer().with_writer(std::io::stderr))
             .with(otel_layer)
             .try_init()

@@ -1,7 +1,6 @@
 ARG RUST_VERSION=1.96.0
 FROM rust:${RUST_VERSION}-bookworm AS build
 # Install software
-COPY ./zscaler_cert.pem /etc/ssl/certs/zscaler_cert.pem
 RUN update-ca-certificates && apt-get update && apt-get install -y libsasl2-dev
 # Create appuser
 ENV USER=chronos
@@ -18,7 +17,6 @@ RUN adduser \
 WORKDIR /tmp
 COPY ./ .
 # Build binary in release mode
-env CARGO_HTTP_CAINFO=/etc/ssl/certs/zscaler_cert.pem
 RUN cargo build -p chronos_bin --release
 
 #
@@ -27,7 +25,6 @@ RUN cargo build -p chronos_bin --release
 FROM debian:bookworm-slim AS run
 # SASL supports
 ENV USER=chronos
-COPY ./zscaler_cert.pem /etc/ssl/certs/zscaler_cert.pem
 RUN apt-get update && apt-get install -y ca-certificates && update-ca-certificates && apt-get install -y libsasl2-dev
 WORKDIR /opt/build
 # Import users from build
