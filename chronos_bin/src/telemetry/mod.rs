@@ -1,2 +1,3 @@
-mod otlp_collector;
+mod metrics;
 pub mod register_telemetry;
+mod traces;

@@ -9,8 +9,6 @@ use std::time::Duration;
 use tokio_postgres::Row;
 use uuid::Uuid;
 
-use tracing::event;
-
 pub struct MessageProcessor {
     pub(crate) data_store: Arc<Pg>,
     pub(crate) producer: Arc<KafkaProducer>,

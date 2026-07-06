@@ -10,6 +10,9 @@ define pp
 endef
 
 
+-include .env
+export
+
 help: Makefile
 	@echo " Choose a command to run:"
 	@sed -n 's/^##//p' $< | column -t -s ':' | sed -e 's/^/ /'
@@ -94,6 +97,10 @@ lint:
 	cargo fmt -- --check
 	cargo clippy --all-targets
 
+## fmt: Runs automatic code formatters
+fmt:
+	cargo fmt
+
 ## test.unit: 🧪 Runs unit tests
 test.unit:
 	$(call pp,rust unit tests...)
@@ -104,10 +111,16 @@ docker.up:
 	$(call pp,run app...)
 	docker compose up -d
 
-## docker.down: bring down the docker containers
+## docker.down: 🔥 bring down the docker containers
 docker.down:
-	$(call pp,run app...)
+	$(call pp,stopping containers...)
 	docker compose down
+
+## docker.build: 🛠️ build the docker containers using docker compose
+docker.build:
+	$(call pp,building containers...)
+	docker compose build
+
 # PHONY ###########################################################################################
 
 # To force rebuild of not-file-related targets, make the targets "phony".

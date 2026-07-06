@@ -23,5 +23,5 @@ opentelemetry.workspace = true
 opentelemetry_sdk.workspace = true
 opentelemetry-otlp.workspace = true
 
-opentelemetry-stdout = { version = "0.31.0", features = ["trace"] }
+opentelemetry-stdout = { version = "0.32.0", features = ["trace"] }
 

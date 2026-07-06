@@ -54,13 +54,39 @@ These values are set to fine tune performance Chrono in need, refer to [Chronos]
 
 
 ## Observability
-At this time Chronos supports Http protocol based connectivity to the Otel collector. By providing following env variables for connecting to the Otel collector instance, traces will appear under the service name mentioned.
+
+### Tracing
+
+Chronos supports sending [batches](https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/#batch-span-processor) of traces using OTLP over `grpc`, `http/json` or `http/protobuff`.
+
+The recommended environment variable configuration for tracing is:
+
 |Env var| Default Value|
 |---|--|
-|   OTEL_SERVICE_NAME|Chronos|
-|   OTEL_TRACES_EXPORTER|otlp|
-|   OTEL_EXPORTER_OTLP_TRACES_ENDPOINT|"http://localhost:4317"
-|   OTEL_EXPORTER_OTLP_PROTOCOL|"grpc"
+|OTEL_SERVICE_NAME|chronos|
+|OTEL_TRACES_EXPORTER|otlp|
+|OTEL_EXPORTER_OTLP_ENDPOINT|http://{localhost\|OTEL_COLLECTOR_HOST}:{4317\|OTLP_GRPC_PORT}|
+|OTEL_EXPORTER_OTLP_PROTOCOL|grpc|
+
+OpenTelemetry span creation and exporting and can be "disabled" by setting:
+```env
+# Calls to start and end spans recordings are no-oped
+OTEL_TRACES_SAMPLER="always_off"
+# Calls to the trace exporter are no-oped
+OTEL_EXPORTER_OTLP_PROTOCOL="none"
+```
+
+For more information on opentelemetry environment variables see the [opentelemetry_otlp crate docs](https://docs.rs/opentelemetry-otlp/0.32.0/opentelemetry_otlp/#environment-variables)
+
+### Metrics
+
+Chronos supports exporting metrics via Prometheus.\
+To enable it, set `OTEL_METRICS_EXPORTER` to `prometheus`.\
+[See the OpenTelemetry SDK environment variable specification for additional Prometheus configuration options](https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/#prometheus-exporter).
+
+### Logging
+
+Logs are written to [`stderr`](https://en.wikipedia.org/wiki/Standard_streams#Standard_error_(stderr))
 
 ## Chronos Images 
 Two images are published for each [RELEASE]( `https://github.com/kindredgroup/chronos/pkgs/container/chronos`)
