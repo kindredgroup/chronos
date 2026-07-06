@@ -1,10 +1,5 @@
 use http_body_util::Full;
-use hyper::{
-    body::{Bytes, Incoming},
-    header::CONTENT_TYPE,
-    service::service_fn,
-    Method, Request, Response,
-};
+use hyper::{body::Bytes, header::CONTENT_TYPE, service::service_fn, Method, Request, Response};
 use hyper_util::{
     rt::{TokioExecutor, TokioIo},
     server::conn::auto::Builder,
@@ -12,7 +7,7 @@ use hyper_util::{
 use opentelemetry::global;
 use opentelemetry_prometheus::exporter;
 use opentelemetry_sdk::metrics::SdkMeterProvider;
-use prometheus::{Encoder, Registry, TextEncoder};
+use prometheus::{Encoder, Registry, TextEncoder, TEXT_FORMAT};
 use tokio::net::TcpListener;
 
 // https://opentelemetry.io/docs/specs/otel/configuration/sdk-environment-variables/#prometheus-exporter
@@ -62,7 +57,7 @@ async fn start_web_server(register: Registry) -> Result<(), Box<dyn std::error::
                 .ok()
         })
         .unwrap_or(OTEL_EXPORTER_PROMETHEUS_DEFAULT_PORT);
-    log::debug!("starting prometheus server on {}:{}", hostname, port);
+    log::info!("starting prometheus server on {}:{}", hostname, port);
     let listener = TcpListener::bind((hostname, port)).await;
     match listener {
         Ok(l) => {
@@ -84,7 +79,7 @@ async fn start_web_server(register: Registry) -> Result<(), Box<dyn std::error::
     Ok(())
 }
 
-async fn serve_req(r: Request<Incoming>, register: Registry) -> Result<Response<Full<Bytes>>, hyper::Error> {
+async fn serve_req<B>(r: Request<B>, register: Registry) -> Result<Response<Full<Bytes>>, hyper::Error> {
     let resp = match (r.method(), r.uri().path()) {
         (&Method::GET, "/metrics") => {
             let mut buffer = vec![];
@@ -117,4 +112,34 @@ async fn serve_req(r: Request<Incoming>, register: Registry) -> Result<Response<
             .unwrap(),
     };
     Ok(resp)
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    #[tokio::test]
+    async fn test_serve_paths() {
+        assert_eq!(
+            serve_req(
+                hyper::Request::builder().uri("/").method("GET").body(Full::<Bytes>::new("".into())).unwrap(),
+                prometheus::Registry::new()
+            )
+            .await
+            .unwrap()
+            .status(),
+            404
+        );
+        let req = serve_req(
+            hyper::Request::builder()
+                .uri("/metrics")
+                .method("GET")
+                .body(Full::<Bytes>::new("".into()))
+                .unwrap(),
+            prometheus::Registry::new(),
+        )
+        .await
+        .unwrap();
+        assert_eq!(req.status(), 200);
+        assert!(req.headers().contains_key(CONTENT_TYPE) && req.headers()[CONTENT_TYPE] == TEXT_FORMAT);
+    }
 }

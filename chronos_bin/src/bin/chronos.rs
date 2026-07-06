@@ -5,7 +5,7 @@ use chronos_bin::postgres::config::PgConfig;
 use chronos_bin::postgres::pg::Pg;
 use chronos_bin::runner::Runner;
 use chronos_bin::telemetry::register_telemetry::TelemetryCollector;
-use log::{debug, info};
+use log::info;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -45,8 +45,6 @@ async fn main() {
         producer: Arc::new(kafka_producer),
         consumer: Arc::new(kafka_consumer),
     };
-
-    debug!("debug logs starting chronos");
 
     r.run().await;
 }

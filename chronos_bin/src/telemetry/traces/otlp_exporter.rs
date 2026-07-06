@@ -7,6 +7,7 @@ pub struct OtlpExporter {}
 impl OtlpExporter {
     pub fn new() {
         // Panic if fails to build when OTLP is required
+        // Force the use of the batch exporter
         let provider = SdkTracerProvider::builder()
             .with_batch_exporter(opentelemetry_otlp::SpanExporter::builder().build().expect("OTLP span builder"))
             .build();
