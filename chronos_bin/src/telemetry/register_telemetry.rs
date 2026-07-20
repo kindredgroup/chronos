@@ -15,6 +15,8 @@ pub enum MetricsExporterType {
     NoOp,
 }
 
+pub const DEFAULT_OTEL_SERVICE_NAME: &str = "chronos";
+
 pub struct TelemetryCollector {
     pub traces_collector_type: TracesExporterType,
     pub metrics_collector_type: MetricsExporterType,
@@ -43,7 +45,7 @@ impl TelemetryCollector {
                 MetricsExporterType::NoOp
             }
         };
-        let service_name = std::env::var("OTEL_SERVICE_NAME").unwrap_or("chronos".to_string());
+        let service_name = std::env::var("OTEL_SERVICE_NAME").unwrap_or(DEFAULT_OTEL_SERVICE_NAME.to_string());
         TelemetryCollector {
             traces_collector_type,
             metrics_collector_type,
