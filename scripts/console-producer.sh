@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Produces a message every 5 minutes
+# Produces a message every 5 seconds
 # tested in image:
 # apache/kafka:4.1.1
 while true
