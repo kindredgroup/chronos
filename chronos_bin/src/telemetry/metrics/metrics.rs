@@ -4,8 +4,9 @@ use opentelemetry::{
     metrics::{Counter, Histogram},
     KeyValue,
 };
+use rdkafka::Message;
 use std::sync::LazyLock;
-
+use std::time::UNIX_EPOCH;
 struct Metrics {
     msg_consume_seconds: Histogram<f64>,
     msg_consume_latency_seconds: Histogram<f64>,
@@ -26,7 +27,11 @@ impl Metrics {
                 .build(),
             msg_consume_latency_seconds: meter // Aka "lag time"
                 .f64_histogram("msg.consume.latency")
-                .with_description("Message latency on the input queue")
+                .with_description(
+                    "Message latency on the input queue. Recorded from the start of the message handler function (does not include processing time)",
+                )
+                // 10ms, 100ms, 200ms, 500ms, 750ms, 750ms
+                .with_boundaries(vec![0.01, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 2.5, 5.0])
                 .with_unit("s")
                 .build(),
             msg_publish_seconds: meter
@@ -57,7 +62,29 @@ pub enum Status {
     ERROR,
 }
 
-pub fn record_msg_consume(process_time: f64, destination: ConsumedMessageDestinations, status: Status) {
+fn record_msg_consume(process_time: f64, destination: &str, status: &str) {
+    METRICS.msg_consume_seconds.record(
+        process_time,
+        &[
+            KeyValue::new("destination", destination.to_string()),
+            KeyValue::new("status", status.to_string()),
+        ],
+    );
+}
+
+fn record_msg_consume_latency(latency: f64, partition: i32) {
+    METRICS
+        .msg_consume_latency_seconds
+        .record(latency, &[KeyValue::new("partition", partition.to_string())]);
+}
+
+pub fn record_consumer_metrics(
+    start: std::time::SystemTime,
+    duration: std::time::Duration,
+    message: &rdkafka::message::BorrowedMessage<'_>,
+    destination: ConsumedMessageDestinations,
+    status: Status,
+) {
     let d = match destination {
         ConsumedMessageDestinations::DATABASE => "database",
         ConsumedMessageDestinations::KAFKA => "kafka",
@@ -67,13 +94,24 @@ pub fn record_msg_consume(process_time: f64, destination: ConsumedMessageDestina
         Status::ERROR => "error",
         Status::SUCCESS => "success",
     };
-    METRICS
-        .msg_consume_seconds
-        .record(process_time, &[KeyValue::new("destination", d), KeyValue::new("status", s)]);
-}
-
-pub fn record_msg_consume_latency(latency: f64, partition: i32) {
-    METRICS
-        .msg_consume_latency_seconds
-        .record(latency, &[KeyValue::new("partition", partition.to_string())]);
+    // consumer function latency
+    record_msg_consume(duration.as_secs_f64(), d, s);
+    // Consumer lag time
+    // Requires error handling because we are using system time (time can go backwards!)
+    match message.timestamp().to_millis() {
+        Some(msg_ts) => match start.duration_since(UNIX_EPOCH) {
+            Ok(dur) => {
+                let delta_sec = dur.as_secs_f64() - (msg_ts / 1000) as f64;
+                record_msg_consume_latency(delta_sec as f64, message.partition());
+            }
+            Err(e) => log::error!("metrics: system time error: {}", e),
+        },
+        None => {
+            log::error!(
+                "metrics: no message timestamp for message {} on partition {}",
+                message.offset(),
+                message.partition()
+            );
+        }
+    }
 }

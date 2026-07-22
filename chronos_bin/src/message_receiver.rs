@@ -8,9 +8,7 @@ use crate::kafka::producer::KafkaProducer;
 use crate::postgres::pg::{Pg, TableInsertRow};
 use crate::telemetry::metrics::metrics;
 use crate::utils::util::{get_message_key, get_payload_utf8, required_headers, CHRONOS_ID, DEADLINE};
-
 use rdkafka::message::BorrowedMessage;
-use std::time::UNIX_EPOCH;
 use std::{collections::HashMap, str::FromStr, sync::Arc};
 
 pub struct MessageReceiver {
@@ -61,7 +59,6 @@ impl MessageReceiver {
                         }
                         tracing::Span::current().record("correlationId", &message_key);
                     }
-
                     log::debug!("Message publish success {:?}", new_message);
                     return None;
                 } else {
@@ -98,13 +95,17 @@ impl MessageReceiver {
 
     #[tracing::instrument(name = "receiver_handle_message", skip_all, fields(correlationId, error))]
     pub async fn handle_message(&self, message: &BorrowedMessage<'_>) {
-        // Must be system time
-        let start = std::time::SystemTime::now();
+        // Metrics
+        // start instant for safe time recordings w no error handling
+        let start_i = std::time::Instant::now();
+        // We need the system TS to compare to the kafka timestamp
+        let start_ts = std::time::SystemTime::now();
+        // Declare but don't set, this helps enumerate all
+        // code paths for our recordings
         let dest: metrics::ConsumedMessageDestinations;
         let status: metrics::Status;
-        let new_message = &message;
         // Check for headers
-        match required_headers(new_message) {
+        match required_headers(message) {
             Some(reqd_headers) => {
                 tracing::Span::current().record("correlationId", &reqd_headers[CHRONOS_ID]);
                 // Get the deadline
@@ -125,7 +126,7 @@ impl MessageReceiver {
                         // We should have sent the message before storing
                         if message_deadline <= Utc::now() {
                             dest = metrics::ConsumedMessageDestinations::KAFKA;
-                            match self.prepare_and_publish(new_message, reqd_headers).await {
+                            match self.prepare_and_publish(message, reqd_headers).await {
                                 Some(err) => {
                                     log::error!("{}", err);
                                     tracing::Span::current().record("error", &err);
@@ -137,7 +138,7 @@ impl MessageReceiver {
                             }
                         } else {
                             dest = metrics::ConsumedMessageDestinations::DATABASE;
-                            match self.insert_into_db(new_message, reqd_headers, message_deadline).await {
+                            match self.insert_into_db(message, reqd_headers, message_deadline).await {
                                 Some(err) => {
                                     log::error!("{}", err);
                                     tracing::Span::current().record("error", &err);
@@ -150,46 +151,34 @@ impl MessageReceiver {
                         }
                     }
                     Err(e) => {
-                        log::warn!("message receiver: time parser error {e}");
+                        // The user provided a bad time stamp
+                        // If we see a TON of em, it could also indicate a bug in our time parser
+                        // Or lots of messages with bad TS's
+                        log::warn!(
+                            "message receiver: offset {} on partition {} caused time parser error {} ",
+                            message.offset(),
+                            message.partition(),
+                            e
+                        );
                         dest = metrics::ConsumedMessageDestinations::DROPPED;
-                        status = metrics::Status::ERROR;
+                        status = metrics::Status::SUCCESS;
                     }
                 }
             }
             None => {
-                log::warn!("message receiver: required headers not found");
-                dest = metrics::ConsumedMessageDestinations::DROPPED;
-                status = metrics::Status::ERROR;
-            }
-        }
-        let end = std::time::SystemTime::now();
-        // Get the duration between
-        let delta = end.duration_since(start);
-        match delta {
-            Ok(o) => {
-                metrics::record_msg_consume(o.as_secs_f64(), dest, status);
-            }
-            Err(e) => {
-                log::error!("system time error: {e}");
-            }
-        }
-        let msg_ts = new_message.timestamp();
-        match msg_ts.to_millis() {
-            Some(msg_ts) => match end.duration_since(UNIX_EPOCH) {
-                Ok(end) => {
-                    let delta_sec = end.as_secs_f64() - (msg_ts / 1000) as f64;
-                    metrics::record_msg_consume_latency(delta_sec as f64, new_message.partition());
-                }
-                Err(e) => log::error!("system time error: {}", e),
-            },
-            None => {
-                log::error!(
-                    "no message timestamp for message {} on partition {}",
-                    new_message.offset(),
-                    new_message.partition()
+                log::warn!(
+                    "message receiver: required headers not found for offset {} on partition {}",
+                    message.offset(),
+                    message.partition(),
                 );
+                dest = metrics::ConsumedMessageDestinations::DROPPED;
+                // This is a success as the producer messed up, not us
+                status = metrics::Status::SUCCESS;
             }
         }
+        // We use an instant because no error handling
+        let dur = std::time::Instant::now().duration_since(start_i);
+        metrics::record_consumer_metrics(start_ts, dur, message, dest, status);
     }
 
     pub async fn run(&self) {
