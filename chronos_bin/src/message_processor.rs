@@ -157,7 +157,6 @@ impl MessageProcessor {
                     if e.contains("could not serialize access due to concurrent update") {
                         log::warn!("{}: could not serialize access due to concurrent update", method_name);
                     }
-
                     log::error!("{}: occurred while processing message ready {}", method_name, e);
                 }
             }
@@ -175,7 +174,6 @@ impl MessageProcessor {
             log::debug!("MessageProcessor loop");
             tokio::time::sleep(Duration::from_millis(10)).await;
             self.processor_message_ready(node_id).await;
-
             delay_controller.sleep().await;
         }
     }

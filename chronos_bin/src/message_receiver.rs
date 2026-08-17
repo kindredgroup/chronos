@@ -30,15 +30,6 @@ impl MessageReceiver {
         //retry loop
         loop {
             if let Some(payload) = get_payload_utf8(new_message) {
-                // This is a bug.
-                // The README says:
-                //
-                // The `message_value` field will almost always be JSON in practice
-                // but Chronos doesn't attempt to parse its contents — it simply forwards it on.
-                // The value may be quite large — beyond the `varchar` limit — hence the use of a `blob`.
-                //
-                // This attempts to serialize the message body to JSON.
-                // This makes Chronos incompatible with any non-json schemas
                 if let Ok(message_value) = &serde_json::from_slice(payload) {
                     if let Some(message_key) = get_message_key(new_message) {
                         let params = TableInsertRow {
@@ -74,10 +65,6 @@ impl MessageReceiver {
     async fn prepare_and_publish(&self, message: &BorrowedMessage<'_>, reqd_headers: HashMap<String, String>) -> Option<String> {
         match get_payload_utf8(message) {
             Some(string_payload) => {
-                // This check smells fishy
-                // Nothing in the README requires that
-                // the message has a key.
-                // It only says we need the chronosMessageId and chronosDeadline.
                 if let Some(message_key) = get_message_key(message) {
                     let string_payload = String::from_utf8_lossy(string_payload).to_string();
                     tracing::Span::current().record("correlationId", &message_key);
@@ -112,18 +99,6 @@ impl MessageReceiver {
                 let message_deadline = DateTime::<Utc>::from_str(&reqd_headers[DEADLINE]);
                 match message_deadline {
                     Ok(message_deadline) => {
-                        // I think this should also include the timing advance
-                        // dl<=Utc::now()+timing
-                        // In the worst case, a message will be delayed poll-1ns
-                        // Lets use the numbers in the docs to
-                        // In the README, the poll interval is set to 100ms, and the
-                        // timing advance is set to 50ms.
-                        // msg_dl_check: 23:59:59.99
-                        // message_deadline: 00:00:00.00
-                        // db_check: 00:00:00.00
-                        // msg stored: 00:00:00.01
-                        // msg_published: 00:00:00.10
-                        // We should have sent the message before storing
                         if message_deadline <= Utc::now() {
                             dest = metrics::ConsumedMessageDestinations::KAFKA;
                             match self.prepare_and_publish(message, reqd_headers).await {
@@ -152,16 +127,15 @@ impl MessageReceiver {
                     }
                     Err(e) => {
                         // The user provided a bad time stamp
-                        // If we see a TON of em, it could also indicate a bug in our time parser
-                        // Or lots of messages with bad TS's
+                        // If we see a TON of em, it could also indicate a bug in our
+                        // time parsing or lots of messages with bad timestamps
                         log::warn!(
                             "message receiver: offset {} on partition {} caused time parser error {} ",
                             message.offset(),
                             message.partition(),
                             e
                         );
-                        dest = metrics::ConsumedMessageDestinations::DROPPED;
-                        status = metrics::Status::SUCCESS;
+                        (dest, status) = (metrics::ConsumedMessageDestinations::DROPPED, metrics::Status::SUCCESS);
                     }
                 }
             }
@@ -171,14 +145,13 @@ impl MessageReceiver {
                     message.offset(),
                     message.partition(),
                 );
-                dest = metrics::ConsumedMessageDestinations::DROPPED;
+                (dest, status) = (metrics::ConsumedMessageDestinations::DROPPED, metrics::Status::SUCCESS);
                 // This is a success as the producer messed up, not us
-                status = metrics::Status::SUCCESS;
             }
         }
         // We use an instant because no error handling
         let dur = std::time::Instant::now().duration_since(start_i);
-        metrics::record_consumer_metrics(start_ts, dur, message, dest, status);
+        metrics::record_consumer_metrics(&start_ts, &dur, message, &dest, &status);
     }
 
     pub async fn run(&self) {
