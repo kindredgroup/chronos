@@ -14,7 +14,6 @@ services:
       timeout: 5s
       retries: 10
     networks: [chronos]
-  
 
   chronos-pg-mig:
     build:
@@ -66,6 +65,45 @@ services:
       KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
       KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 || exit 1"]
+      interval: 1s
+      timeout: 5s
+      retries: 60
+
+  kafka-bootstrap:
+    image: apache/kafka:4.1.1
+    container_name: chronos-kafka-bootstrap
+    networks: [chronos]
+    restart: on-failure
+    depends_on:
+      kafka:
+        condition: service_healthy
+    command: |-
+      /opt/kafka/bin/kafka-topics.sh
+        --bootstrap-server kafka:9092
+        --create
+        --if-not-exists
+        --config "message.timestamp.type=LogAppendTime"
+        --topic chronos\.in &&
+      /opt/kafka/bin/kafka-topics.sh
+        --bootstrap-server kafka:9092 \
+        --create
+        --if-not-exists
+        --config "message.timestamp.type=LogAppendTime"
+        --topic chronos\.out
+
+  kafka-producer:
+    image: apache/kafka:4.1.1
+    container_name: chronos-kafka-producer
+    networks: [chronos]
+    restart: always
+    depends_on:
+      kafka-bootstrap:
+        condition: service_completed_successfully
+    entrypoint: bash /tmp/console-producer.sh
+    volumes:
+      - ./scripts/console-producer.sh:/tmp/console-producer.sh
 
   kowl:
     image: quay.io/cloudhut/kowl:v1.5.0
@@ -114,8 +152,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      kafka:
-        condition: service_started
+      kafka-bootstrap:
+        condition: service_completed_successfully
       otel-collector:
         condition: service_started
     ports:

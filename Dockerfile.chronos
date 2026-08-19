@@ -15,9 +15,26 @@ RUN adduser \
     "${USER}"
 
 WORKDIR /tmp
-COPY ./ .
 # Build binary in release mode
-RUN cargo build -p chronos_bin --release
+COPY ./Cargo.lock \
+    ./rust-toolchain.toml \
+    ./Cargo.toml \
+    ./
+
+# Copy in pg_mig and examples so we don't break
+# cargo builds (cargo will fail if it can't find pg_mig and examples)
+# One per line so its cache optimized
+COPY chronos_bin /tmp/chronos_bin
+COPY pg_mig /tmp/pg_mig
+COPY examples /tmp/examples
+
+# Local caches to optimize the local build exp
+RUN --mount=type=cache,target=/usr/local/cargo/registry/ \
+    --mount=type=cache,target=/tmp/target/ \
+    cargo build \
+        -p chronos_bin \
+        --release \
+        --target-dir /build
 
 #
 # Run image based on bookworm-slim to reduce image size while still using glibc
@@ -31,7 +48,7 @@ WORKDIR /opt/build
 COPY --from=build /etc/passwd /etc/passwd
 COPY --from=build /etc/group /etc/group
 # Copy binary from build
-COPY --from=build /tmp/target/release/chronos ./
+COPY --from=build /build/release/chronos /opt/build/chronos
 # Use an unprivileged user
 USER ${USER}:${USER}
 # Entry point

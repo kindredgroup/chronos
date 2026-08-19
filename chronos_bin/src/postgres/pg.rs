@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Local};
 use deadpool_postgres::{Config, GenericClient, ManagerConfig, Object, Pool, PoolConfig, Runtime, Transaction};
 use log::error;
 use std::time::{Duration, Instant};
@@ -20,7 +20,7 @@ pub struct Pg {
 #[derive(Debug)]
 pub struct TableInsertColumns<'a> {
     pub id: &'a str,
-    pub deadline: DateTime<Utc>,
+    pub deadline: DateTime<Local>,
     pub message_headers: serde_json::Value,
     pub message_key: &'a str,
     pub message_value: serde_json::Value,
@@ -29,8 +29,8 @@ pub struct TableInsertColumns<'a> {
 #[derive(Debug)]
 pub struct TableRow<'a> {
     pub id: &'a str,
-    pub deadline: DateTime<Utc>,
-    pub readied_at: DateTime<Utc>,
+    pub deadline: DateTime<Local>,
+    pub readied_at: DateTime<Local>,
     pub readied_by: Uuid,
     pub message_headers: serde_json::Value,
     pub message_key: &'a str,
@@ -40,16 +40,16 @@ pub struct TableRow<'a> {
 #[derive(Debug)]
 pub struct TableInsertRow<'a> {
     pub id: &'a str,
-    pub deadline: DateTime<Utc>,
+    pub deadline: DateTime<Local>,
     pub message_headers: &'a serde_json::Value,
     pub message_key: &'a str,
     pub message_value: &'a serde_json::Value,
 }
 #[derive(Debug)]
 pub struct GetReady {
-    pub readied_at: DateTime<Utc>,
+    pub readied_at: DateTime<Local>,
     pub readied_by: Uuid,
-    pub deadline: DateTime<Utc>,
+    pub deadline: DateTime<Local>,
     // pub limit: i64,
     // pub order: &'a str,
 }
@@ -307,7 +307,7 @@ impl Pg {
     }
 
     #[tracing::instrument(name = "failed_to_fire_db", skip_all)]
-    pub(crate) async fn failed_to_fire_db(&self, delay_time: &DateTime<Utc>) -> Result<Vec<Row>, PgError> {
+    pub(crate) async fn failed_to_fire_db(&self, delay_time: &DateTime<Local>) -> Result<Vec<Row>, PgError> {
         let method_name = "failed_to_fire_db";
         let query_execute_instant = Instant::now();
         let pg_client = self.get_client().await?;

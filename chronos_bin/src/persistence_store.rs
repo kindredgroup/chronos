@@ -9,6 +9,6 @@ pub trait PersistenceStore {
     // async fn queuing_fetch(pg_client: &Client, deadline: String, limit: u16) -> Vec<TableRow>;
     async fn delete_fired(&self, ids: &String) -> u64;
     async fn ready_to_fire(&self, params: &Vec<GetReady>) -> Vec<Row>;
-    async fn failed_to_fire(&self, delay_time: DateTime<Utc>) -> Vec<Row>;
+    async fn failed_to_fire(&self, delay_time: DateTime<Local>) -> Vec<Row>;
     async fn reset_to_init(&self,  to_init_list: &Vec<Row>) -> Vec<String>;
 }

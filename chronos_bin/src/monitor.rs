@@ -1,6 +1,6 @@
 use crate::postgres::pg::Pg;
 use crate::utils::config::ChronosConfig;
-use chrono::Utc;
+use chrono::Local;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio_postgres::Row;
@@ -56,7 +56,7 @@ impl FailureDetector {
     async fn monitor_failed_fire_records(&self) {
         match &self
             .data_store
-            .failed_to_fire_db(&(Utc::now() - Duration::from_secs(ChronosConfig::from_env().fail_detect_interval)))
+            .failed_to_fire_db(&(Local::now() - Duration::from_secs(ChronosConfig::from_env().fail_detect_interval)))
             .await
         {
             Ok(fetched_rows) => {

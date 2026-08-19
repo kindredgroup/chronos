@@ -1,10 +1,12 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Local};
+use rdkafka::Message;
 use serde_json::json;
 use tracing::instrument;
 
 use crate::kafka::consumer::KafkaConsumer;
 use crate::kafka::producer::KafkaProducer;
 use crate::postgres::pg::{Pg, TableInsertRow};
+use crate::telemetry::metrics::metrics;
 use crate::utils::util::{get_message_key, get_payload_utf8, required_headers, CHRONOS_ID, DEADLINE};
 use rdkafka::message::BorrowedMessage;
 use std::{collections::HashMap, str::FromStr, sync::Arc};
@@ -21,7 +23,7 @@ impl MessageReceiver {
         &self,
         new_message: &BorrowedMessage<'_>,
         reqd_headers: HashMap<String, String>,
-        message_deadline: DateTime<Utc>,
+        message_deadline: DateTime<Local>,
     ) -> Option<String> {
         let max_retry_count = 3;
         let mut retry_count = 0;
@@ -48,7 +50,6 @@ impl MessageReceiver {
                         }
                         tracing::Span::current().record("correlationId", &message_key);
                     }
-
                     log::debug!("Message publish success {:?}", new_message);
                     return None;
                 } else {
@@ -81,23 +82,76 @@ impl MessageReceiver {
 
     #[tracing::instrument(name = "receiver_handle_message", skip_all, fields(correlationId, error))]
     pub async fn handle_message(&self, message: &BorrowedMessage<'_>) {
-        let new_message = &message;
-        if let Some(reqd_headers) = required_headers(new_message) {
-            tracing::Span::current().record("correlationId", &reqd_headers[CHRONOS_ID]);
-            if let Ok(message_deadline) = DateTime::<Utc>::from_str(&reqd_headers[DEADLINE]) {
-                if message_deadline <= Utc::now() {
-                    if let Some(err) = self.prepare_and_publish(new_message, reqd_headers).await {
-                        log::error!("{}", err);
-                        tracing::Span::current().record("error", &err);
+        // Metrics
+        // start instant for safe time recordings w no error handling
+        let start_i = std::time::Instant::now();
+        // We need the system TS to compare to the kafka timestamp
+        let start_ts = chrono::Local::now();
+        // Declare but don't set, this helps enumerate all
+        // code paths for our recordings
+        let dest: metrics::ConsumedMessageDestinations;
+        let status: metrics::Status;
+        // Check for headers
+        match required_headers(message) {
+            Some(reqd_headers) => {
+                tracing::Span::current().record("correlationId", &reqd_headers[CHRONOS_ID]);
+                // Get the deadline header
+                let message_deadline = DateTime::<Local>::from_str(&reqd_headers[DEADLINE]);
+                match message_deadline {
+                    Ok(message_deadline) => {
+                        if message_deadline <= start_ts {
+                            dest = metrics::ConsumedMessageDestinations::KAFKA;
+                            match self.prepare_and_publish(message, reqd_headers).await {
+                                Some(err) => {
+                                    log::error!("{}", err);
+                                    tracing::Span::current().record("error", &err);
+                                    status = metrics::Status::ERROR;
+                                }
+                                None => {
+                                    status = metrics::Status::SUCCESS;
+                                }
+                            }
+                        } else {
+                            dest = metrics::ConsumedMessageDestinations::DATABASE;
+                            match self.insert_into_db(message, reqd_headers, message_deadline).await {
+                                Some(err) => {
+                                    log::error!("{}", err);
+                                    tracing::Span::current().record("error", &err);
+                                    status = metrics::Status::ERROR;
+                                }
+                                None => {
+                                    status = metrics::Status::SUCCESS;
+                                }
+                            };
+                        }
                     }
-                } else if let Some(err_string) = self.insert_into_db(new_message, reqd_headers, message_deadline).await {
-                    log::error!("{}", err_string);
-                    tracing::Span::current().record("error", &err_string);
+                    Err(e) => {
+                        // The user provided a bad time stamp
+                        // If we see a TON of em, it could also indicate a bug in our
+                        // time parsing or lots of messages with bad timestamps
+                        log::warn!(
+                            "message receiver: offset {} on partition {} caused time parser error {} ",
+                            message.offset(),
+                            message.partition(),
+                            e
+                        );
+                        (dest, status) = (metrics::ConsumedMessageDestinations::DROPPED, metrics::Status::SUCCESS);
+                    }
                 }
             }
-        } else {
-            log::warn!("message receiver: required headers not found");
+            None => {
+                log::warn!(
+                    "message receiver: required headers not found for offset {} on partition {}",
+                    message.offset(),
+                    message.partition(),
+                );
+                (dest, status) = (metrics::ConsumedMessageDestinations::DROPPED, metrics::Status::SUCCESS);
+                // This is a success as the producer messed up, not us
+            }
         }
+        // We use an instant because no error handling
+        let dur = std::time::Instant::now().duration_since(start_i);
+        metrics::record_consumer_metrics(&start_ts, &dur, message, &dest, &status);
     }
 
     pub async fn run(&self) {
@@ -112,9 +166,6 @@ impl MessageReceiver {
                     log::error!("error while consuming message {:?}", e);
                 }
             }
-            // if let Ok(message) = &self.consumer.kafka_consume_message().await {
-            //     self.handle_message(message).await;
-            // }
         }
     }
 }
