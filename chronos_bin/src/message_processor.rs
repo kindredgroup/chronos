@@ -2,7 +2,7 @@ use crate::kafka::producer::KafkaProducer;
 use crate::postgres::pg::{GetReady, Pg, TableRow};
 use crate::utils::config::ChronosConfig;
 use crate::utils::delay_controller::DelayController;
-use chrono::Utc;
+use chrono::Local;
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
@@ -115,9 +115,7 @@ impl MessageProcessor {
     async fn processor_message_ready(&self, node_id: Uuid) {
         loop {
             let method_name = "processor_message_ready";
-
-            let deadline = Utc::now() - Duration::from_secs(ChronosConfig::from_env().time_advance);
-
+            let deadline = Local::now() - Duration::from_secs(ChronosConfig::from_env().time_advance);
             let param = GetReady {
                 readied_at: deadline,
                 readied_by: node_id,

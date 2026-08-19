@@ -1,8 +1,8 @@
 use super::super::register_telemetry::DEFAULT_OTEL_SERVICE_NAME;
+use chrono::Local;
 use opentelemetry::{global, metrics::Histogram, KeyValue};
 use rdkafka::Message;
 use std::sync::LazyLock;
-use std::time::UNIX_EPOCH;
 
 pub enum ConsumedMessageDestinations {
     KAFKA,
@@ -31,7 +31,8 @@ impl Metrics {
             msg_consume_seconds: meter
                 .f64_histogram("msg.consume.service.time")
                 .with_description("Service time after receiving a message from the input queue")
-                .with_boundaries(vec![0.01, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 2.5, 5.0])
+                // 5ms, 10ms, 25ms, 50ms, 100ms, 200ms, 500ms, 1s, 2s, 2.5s, 5s
+                .with_boundaries(vec![0.005, 0.01, 0.025, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 2.5, 5.0])
                 .with_unit("s")
                 .build(),
             msg_consume_latency_seconds: meter // Aka "lag time"
@@ -39,7 +40,7 @@ impl Metrics {
                 .with_description(
                     "Message latency on the input queue. Recorded from the start of the message handler function (does not include processing time)",
                 )
-                .with_boundaries(vec![0.01, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 2.5, 5.0])
+                .with_boundaries(vec![0.005, 0.01, 0.025, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 2.5, 5.0])
                 .with_unit("s")
                 .build(),
             //            msg_publish_seconds: meter
@@ -59,6 +60,7 @@ impl Metrics {
 
 static METRICS: LazyLock<Metrics> = LazyLock::new(Metrics::new);
 
+/// Records the message consumption service time (time spent processing), in seconds
 fn record_msg_consume(process_time: f64, destination: &str, status: &str) {
     METRICS.msg_consume_seconds.record(
         process_time,
@@ -69,14 +71,17 @@ fn record_msg_consume(process_time: f64, destination: &str, status: &str) {
     );
 }
 
+/// Records the message conume latency (time in queue), in seconds
 fn record_msg_consume_latency(latency: f64, partition: i32) {
     METRICS
         .msg_consume_latency_seconds
         .record(latency, &[KeyValue::new("partition", partition.to_string())]);
 }
 
+/// Records consumer metrics
+/// Should be run as the last step of message processing
 pub fn record_consumer_metrics(
-    start: &std::time::SystemTime,
+    start: &chrono::DateTime<Local>,
     duration: &std::time::Duration,
     message: &rdkafka::message::BorrowedMessage<'_>,
     destination: &ConsumedMessageDestinations,
@@ -92,15 +97,11 @@ pub fn record_consumer_metrics(
         Status::SUCCESS => "success",
     };
     record_msg_consume(duration.as_secs_f64(), d, s);
-    // Requires error handling because we are using system time (time can go backwards!)
     match message.timestamp().to_millis() {
-        Some(msg_ts) => match start.duration_since(UNIX_EPOCH) {
-            Ok(dur) => {
-                let delta_sec = dur.as_secs_f64() - (msg_ts / 1000) as f64;
-                record_msg_consume_latency(delta_sec as f64, message.partition());
-            }
-            Err(e) => log::error!("metrics: system time error: {}", e),
-        },
+        Some(msg_ts) => {
+            let delta_sec = ((start.timestamp_millis() - (msg_ts) as i64) / 1000) as f64;
+            record_msg_consume_latency(delta_sec as f64, message.partition());
+        }
         None => {
             log::error!(
                 "metrics: no message timestamp for message {} on partition {}",

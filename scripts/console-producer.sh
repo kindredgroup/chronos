@@ -16,5 +16,5 @@ do
         --property "headers.delimiter= " \
         --bootstrap-server "kafka:9092" < /tmp/msg.$i ;
     done;
-    sleep 10;
+    sleep 5;
 done;

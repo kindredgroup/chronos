@@ -1,4 +1,4 @@
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Local};
 use rdkafka::Message;
 use serde_json::json;
 use tracing::instrument;
@@ -23,7 +23,7 @@ impl MessageReceiver {
         &self,
         new_message: &BorrowedMessage<'_>,
         reqd_headers: HashMap<String, String>,
-        message_deadline: DateTime<Utc>,
+        message_deadline: DateTime<Local>,
     ) -> Option<String> {
         let max_retry_count = 3;
         let mut retry_count = 0;
@@ -86,7 +86,7 @@ impl MessageReceiver {
         // start instant for safe time recordings w no error handling
         let start_i = std::time::Instant::now();
         // We need the system TS to compare to the kafka timestamp
-        let start_ts = std::time::SystemTime::now();
+        let start_ts = chrono::Local::now();
         // Declare but don't set, this helps enumerate all
         // code paths for our recordings
         let dest: metrics::ConsumedMessageDestinations;
@@ -95,11 +95,11 @@ impl MessageReceiver {
         match required_headers(message) {
             Some(reqd_headers) => {
                 tracing::Span::current().record("correlationId", &reqd_headers[CHRONOS_ID]);
-                // Get the deadline
-                let message_deadline = DateTime::<Utc>::from_str(&reqd_headers[DEADLINE]);
+                // Get the deadline header
+                let message_deadline = DateTime::<Local>::from_str(&reqd_headers[DEADLINE]);
                 match message_deadline {
                     Ok(message_deadline) => {
-                        if message_deadline <= Utc::now() {
+                        if message_deadline <= start_ts {
                             dest = metrics::ConsumedMessageDestinations::KAFKA;
                             match self.prepare_and_publish(message, reqd_headers).await {
                                 Some(err) => {
