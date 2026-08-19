@@ -99,8 +99,23 @@ pub fn record_consumer_metrics(
     record_msg_consume(duration.as_secs_f64(), d, s);
     match message.timestamp().to_millis() {
         Some(msg_ts) => {
+            // Time stamp millis returns unix epoch which is the same
+            // unit as the Kafka timestamp implementation.
+            // This is "safe" (won't panic),
+            // but we log here if we see a negative integer as it means that
+            // the kafka and system clock are out of sync
+            // We will discard the metric as it doesn't reflect the actual performance
+            // of the system.
             let delta_sec = ((start.timestamp_millis() - (msg_ts) as i64) / 1000) as f64;
-            record_msg_consume_latency(delta_sec as f64, message.partition());
+            if delta_sec < 0 as f64 {
+                record_msg_consume_latency(delta_sec as f64, message.partition());
+            } else {
+                log::error!(
+                    "negative time delta found when comparing system UTC and kafka TS UTC for message {} on partition {}",
+                    message.offset(),
+                    message.partition()
+                )
+            }
         }
         None => {
             log::error!(
